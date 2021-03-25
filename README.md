@@ -5,6 +5,10 @@
 
 REMOVED: FREE FALL / Throws > Jab / Smatks whiff > Pivot, Crouch, Up ("Slights" of movement) / Specials > Slights / Atks on shield > Slights / Tilts whiff > Crouch / Tilt, Smatk hit > Dash (no infinites, but can still double tap to Dash for combos) / Training Mode Crash
 
-FUTURE: FootSt - AD / Tech hits (11fr) / Lagless Dodges / J(ump) Hold 1 sec “Float” / Backdashes / Hold AD 2 Seconds / Foxtrot+Down = Dble Foxtrot (Tekken) / J+J - IDJ / J+B - IAD / AT hit 1 Reset (like AD) / AT+Drctn - Dash "bolt" (extended Run in the air)
-
 NEED TO FIX: Mario CRASH / Remove Falling AT “Flight” / Limit 1 AT / “Spring” Up Bs can't Reset / Lucario, Greninja, Bayo Up B's can't Reset / Pythra cancels break her sword
+
+DESIRES: FootSt - AD / Tech hits (11fr) / Lagless Dodges / J(ump) Hold 1 sec “Float” / Walk back & Backdash while facing foe / Hold AD 2 Seconds / Foxtrot+Down = Dble Foxtrot (Tekken) / J+J - IDJ / J+B - IAD / AT hit 1 Reset (like AD) / AT+Drctn - Dash "bolt" (extended Run in the air)
+
+POSSIBLE: Down+“Tap” Attack - Down Jab (like Shoutos, “Press” still down tilts) / Side Tilt “Screw” (untechable launch like Tekken 7 / Side Smash “Armors” 1 jab, datk, tilt, or aerial (not lows) / Shield bubble removed to leave only Block animation, can’t Block down Jab, Tilt or Smash / Crouch + Block, defends all but aerials / Block hits while holding back, back crouch & back in air (FGC) / Air Dodge in place replaced by Air Block and continues when landing / Directional 2sec Air Dash Holding function (replace AD Ending function) / Remove Hit Tech “Screws”, “Armors” / Side,Down,Up Taunts - Movement (like Analog) / Block+Spcl+Direction - "Ashura Senku dash (slows down foe instead of dodging) / Special - 1 other Special / Input Specials with Priority ie. DPs ("Hadoken" to Neutral, "Tatsu" to Side, "Rising Tackle" to Up, "Power Dunk" to down) / Up Smallest Shield bubble “Stance”, bubble builds over time / Up+Directions - Taunts / "Stance" while hit to "Burst" (GGXrd) / hold “Stance” to charge EXtract
+
+EXTRACT: Shield break animation appears upon contacting foe / Any 1 Special instantly full charged (ie. instant Falcon Punch) / Any 1 Up Tilt, Smatk, Throw - “Launch” (ie. Dead or Alive) / Any 1 Side Tilt, Smatk, Throw - “Reverse Bounce” (ie. wall bounce) / Any 1 Down Tilt, Smatk, Throw - “Dizzy Stuns" foe (ie. shielding too long)
