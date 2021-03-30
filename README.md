@@ -1,5 +1,5 @@
 # UltiMEX (Balanced Turbo Mode)
-2.5D Smash Source Code
+2.5D Smash Source Code (Beta 77) Adds
 
 50+ ADDITIONS: Moondashes / Lagless Air Dashes "ADs" / Double ADs "DAD" / Jab, Tilt > Dash / Zair in-out ADs / Jab, Tilt, Crouch > Pivots / Air atk hit > 1 air / Foxtrots x2 Speed / Smatks > Specials / Throws > Specials / Datk grab Cancels / DAD hit Reset / Airs whiff > Special / Datk hit > Jab, Spcls / Specials whiff > Atks / Air Taunt "AT", hover / AT in place, no falling / Reverse Slide Tilts, Datk, & Smatks “RIT, RID, RIS” / Datk whiff > Jab, Crouch, Up / Air > Ground Cancel Windows / AUTO TURN CHARS & PIVOTS / Get up & ledge atk > all motions / Spcls > Jump, Dash, Block, Pivots / Atks > Motions (but datk, smatk) / Up B Cancels, count Jumps & ADs / Trot & Dash > Crouch, Pivots, & Up / Smatks hit > block, grab, jump, pivots / Held B finishes animation (stop cancels) / Allowed Multi Up Bs jump & AD Reset once
 
