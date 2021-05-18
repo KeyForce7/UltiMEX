@@ -1,5 +1,5 @@
 # UltiMEX (Balanced Turbo Mode)
-2.5D Smash Source Code (Beta 86) Adds
+The "2.5D Smash" Source Code Adds
 
 Movement Changes: Universal Auto Turn / Lagless Air Dodges "ADs" / Double ADs "DAD" / DAD on hit reset / Foxtrots x2 Speed / Foxtrot + Crouch quickly doubles like Marvel-Tekken styled Wavedash / Dash > Crouch, Pivots, & Up / Air Taunts "AT" allow Tanooki Float (disabled by Double AT) / Up B Resets (account for Jumps & ADs) / Held B finishes animation (stop cancels) / Weight 1.5 (Heavy) but Up Bs 0.8 (Light) for better ground gameplay & increased recovery / Lagless Shield Drop > All Options (Like out of Shield Up B)
 
