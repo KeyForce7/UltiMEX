@@ -13,7 +13,10 @@ crate-type = ["cdylib"]
 [dependencies]
 skyline = { git = "https://github.com/ultimate-research/skyline-rs.git" }
 skyline_smash = { git = "https://github.com/ultimate-research/skyline-smash.git" }
-acmd = { git = "https://github.com/ultimate-research/skyline-acmd.git" }
+smashline = { git = "https://github.com/blu-dev/smashline.git" }
+
+compile-time-lua-bind-hash = "1.1"
+paste = "1.0"
 
 [profile.dev]
 panic = "abort"

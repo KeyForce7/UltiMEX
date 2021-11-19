@@ -58,93 +58,113 @@ unsafe fn attack_replace(lua_state: u64) {
     original!()(lua_state);
 }
 pub unsafe fn is_damage_check(module_accessor : *mut BattleObjectModuleAccessor, is_prev : bool) -> bool {
-    let status;
+    let status : i32;
     if is_prev {
         status = StatusModule::prev_status_kind(module_accessor, 0);
     }
     else {
         status = StatusModule::status_kind(module_accessor);
     }
-    if WorkModule::is_flag(module_accessor, *FIGHTER_INSTANCE_WORK_ID_FLAG_CAPTURE_YOSHI)
+    if FighterStopModuleImpl::is_damage_stop(module_accessor)
+        || WorkModule::is_flag(module_accessor, *FIGHTER_INSTANCE_WORK_ID_FLAG_CAPTURE_YOSHI)
+        || WorkModule::is_flag(module_accessor, *FIGHTER_INSTANCE_WORK_ID_FLAG_GANON_SPECIAL_S_DAMAGE_FALL_GROUND)
+        || WorkModule::is_flag(module_accessor, *FIGHTER_INSTANCE_WORK_ID_FLAG_GANON_SPECIAL_S_DAMAGE_FALL_AIR)
         || [
-        *FIGHTER_STATUS_KIND_DAMAGE,
-        *FIGHTER_STATUS_KIND_DAMAGE_SLEEP_START,
-        *FIGHTER_STATUS_KIND_DAMAGE_SLEEP_END,
-        *FIGHTER_STATUS_KIND_DAMAGE_SLEEP_FALL,
-        *FIGHTER_STATUS_KIND_DAMAGE_SLEEP,
-        *FIGHTER_STATUS_KIND_DAMAGE_SONG,
-        *FIGHTER_STATUS_KIND_DAMAGE_SONG_FALL,
-        *FIGHTER_STATUS_KIND_DAMAGE_SONG_START,
-        *FIGHTER_STATUS_KIND_DAMAGE_SONG_END,
-        *FIGHTER_STATUS_KIND_STABBED_DAMAGE,
-        *FIGHTER_STATUS_KIND_STABBED_RIDLEY,
-        *FIGHTER_STATUS_KIND_DAMAGE_AIR,
-        *FIGHTER_STATUS_KIND_THROWN,
-        *FIGHTER_STATUS_KIND_FURAFURA,
-        *FIGHTER_STATUS_KIND_FURAFURA_STAND,
-        *FIGHTER_STATUS_KIND_FURAFURA_END,
-        *FIGHTER_STATUS_KIND_CAPTURE_WAIT,
+        *FIGHTER_STATUS_KIND_AIR_LASSO,
+        *FIGHTER_STATUS_KIND_BIND,
+        *FIGHTER_STATUS_KIND_BURY,
+        *FIGHTER_STATUS_KIND_BURY_WAIT,
+        *FIGHTER_STATUS_KIND_CAPTURE_BEETLE,
+        *FIGHTER_STATUS_KIND_CAPTURE_CUT,
         *FIGHTER_STATUS_KIND_CAPTURE_DAMAGE,
-        *FIGHTER_STATUS_KIND_DAMAGE_FLY,
-        *FIGHTER_STATUS_KIND_MEWTWO_THROWN,
-        *FIGHTER_STATUS_KIND_DAMAGE_FLY_ROLL,
-        *FIGHTER_STATUS_KIND_DAMAGE_FLY_METEOR,
-        *FIGHTER_STATUS_KIND_DAMAGE_FLY_REFLECT_LR,
-        *FIGHTER_STATUS_KIND_DAMAGE_FLY_REFLECT_U,
-        *FIGHTER_STATUS_KIND_DAMAGE_FLY_REFLECT_D,
-        *FIGHTER_STATUS_KIND_SAVING_DAMAGE,
-        *FIGHTER_STATUS_KIND_SAVING_DAMAGE_FLY,
-        *FIGHTER_STATUS_KIND_SAVING_DAMAGE_AIR,
-        *FIGHTER_STATUS_KIND_CLUNG_CAPTAIN,
-        *FIGHTER_STATUS_KIND_CLUNG_DIDDY,
-        *FIGHTER_STATUS_KIND_SHIELD_BREAK_FALL,
-        *FIGHTER_STATUS_KIND_SHIELD_BREAK_DOWN,
-        *FIGHTER_STATUS_KIND_SHIELD_BREAK_FLY,
-        *FIGHTER_STATUS_KIND_FINAL,
-        *FIGHTER_STATUS_KIND_SLEEP,
-        *FIGHTER_STATUS_KIND_GUARD_DAMAGE,
+        *FIGHTER_STATUS_KIND_CAPTURE_DRIVER,
+        *FIGHTER_STATUS_KIND_CAPTURE_ITEM,
         *FIGHTER_STATUS_KIND_CAPTURE_JACK_WIRE,
         *FIGHTER_STATUS_KIND_CAPTURE_MASTERHAND,
         *FIGHTER_STATUS_KIND_CAPTURE_MASTER_SWORD,
-        *FIGHTER_STATUS_KIND_SWALLOWED,
-        *FIGHTER_STATUS_KIND_AIR_LASSO,
+        *FIGHTER_STATUS_KIND_CAPTURE_PULLED,
+        *FIGHTER_STATUS_KIND_CAPTURE_PULLED_FISHINGROD,
+        *FIGHTER_STATUS_KIND_CAPTURE_PULLED_PICKEL,
+        *FIGHTER_STATUS_KIND_CAPTURE_PULLED_YOSHI,
+        *FIGHTER_STATUS_KIND_CAPTURE_WAIT,
+        *FIGHTER_STATUS_KIND_CAPTURE_YOSHI,
+        *FIGHTER_STATUS_KIND_CATCHED_AIR_END_GANON,
+        *FIGHTER_STATUS_KIND_CATCHED_AIR_FALL_GANON,
+        *FIGHTER_STATUS_KIND_CATCHED_AIR_GANON,
+        *FIGHTER_STATUS_KIND_CATCHED_GANON,
+        *FIGHTER_STATUS_KIND_CATCHED_PICKEL_TROLLEY,
         *FIGHTER_STATUS_KIND_CATCHED_REFLET,
         *FIGHTER_STATUS_KIND_CATCHED_RIDLEY,
-        *FIGHTER_STATUS_KIND_MISS_FOOT,
+        *FIGHTER_STATUS_KIND_CLUNG_CAPTAIN,
+        *FIGHTER_STATUS_KIND_CLUNG_DAMAGE_DIDDY,
+        *FIGHTER_STATUS_KIND_CLUNG_DIDDY,
+        *FIGHTER_STATUS_KIND_CLUNG_GANON,
+        *FIGHTER_STATUS_KIND_CLUNG_THROWN_BLANK_DIDDY,
+        *FIGHTER_STATUS_KIND_CLUNG_THROWN_DIDDY,
+        *FIGHTER_STATUS_KIND_DAMAGE,
+        *FIGHTER_STATUS_KIND_DAMAGE_AIR,
+        *FIGHTER_STATUS_KIND_DAMAGE_FALL,
+        *FIGHTER_STATUS_KIND_DAMAGE_FLY,
+        *FIGHTER_STATUS_KIND_DAMAGE_FLY_METEOR,
+        *FIGHTER_STATUS_KIND_DAMAGE_FLY_REFLECT_D,
+        *FIGHTER_STATUS_KIND_DAMAGE_FLY_REFLECT_JUMP_BOARD,
+        *FIGHTER_STATUS_KIND_DAMAGE_FLY_REFLECT_LR,
+        *FIGHTER_STATUS_KIND_DAMAGE_FLY_REFLECT_U,
+        *FIGHTER_STATUS_KIND_DAMAGE_FLY_ROLL,
+        *FIGHTER_STATUS_KIND_DAMAGE_SLEEP,
+        *FIGHTER_STATUS_KIND_DAMAGE_SLEEP_END,
+        *FIGHTER_STATUS_KIND_DAMAGE_SLEEP_FALL,
+        *FIGHTER_STATUS_KIND_DAMAGE_SLEEP_START,
+        *FIGHTER_STATUS_KIND_DAMAGE_SONG,
+        *FIGHTER_STATUS_KIND_DAMAGE_SONG_END,
+        *FIGHTER_STATUS_KIND_DAMAGE_SONG_FALL,
+        *FIGHTER_STATUS_KIND_DAMAGE_SONG_START,
         *FIGHTER_STATUS_KIND_DEAD,
-        *FIGHTER_STATUS_KIND_REBIRTH,
-        *FIGHTER_STATUS_KIND_BURY,
-        *FIGHTER_STATUS_KIND_BURY_WAIT,
-        *FIGHTER_STATUS_KIND_ICE,
-        *FIGHTER_STATUS_KIND_DOWN_DAMAGE,
-        *FIGHTER_STATUS_KIND_DOWN_STAND_FB,
-        *FIGHTER_STATUS_KIND_DOWN_STAND,
-        *FIGHTER_STATUS_KIND_DOWN_WAIT,
-        *FIGHTER_STATUS_KIND_DOWN_EAT,
-        *FIGHTER_STATUS_KIND_LAY_DOWN,
         *FIGHTER_STATUS_KIND_DOWN,
+        *FIGHTER_STATUS_KIND_DOWN_DAMAGE,
+        *FIGHTER_STATUS_KIND_DOWN_EAT,
         *FIGHTER_STATUS_KIND_DOWN_SPOT,
+        *FIGHTER_STATUS_KIND_DOWN_STAND,
+        *FIGHTER_STATUS_KIND_DOWN_STAND_FB,
+        *FIGHTER_STATUS_KIND_DOWN_WAIT,
+        *FIGHTER_STATUS_KIND_FINAL,
+        *FIGHTER_STATUS_KIND_FURAFURA,
+        *FIGHTER_STATUS_KIND_FURAFURA_END,
+        *FIGHTER_STATUS_KIND_FURAFURA_STAND,
+        *FIGHTER_STATUS_KIND_GUARD_DAMAGE,
+        *FIGHTER_STATUS_KIND_ICE,
+        *FIGHTER_STATUS_KIND_KOOPA_DIVED,
+        *FIGHTER_STATUS_KIND_LAY_DOWN,
+        *FIGHTER_STATUS_KIND_MEWTWO_THROWN,
+        *FIGHTER_STATUS_KIND_MISS_FOOT,
         *FIGHTER_STATUS_KIND_PASSIVE,
-        *FIGHTER_STATUS_KIND_PASSIVE_WALL,
         *FIGHTER_STATUS_KIND_PASSIVE_CEIL,
         *FIGHTER_STATUS_KIND_PASSIVE_FB,
+        *FIGHTER_STATUS_KIND_PASSIVE_WALL,
+        *FIGHTER_STATUS_KIND_REBIRTH,
+        *FIGHTER_STATUS_KIND_SAVING_DAMAGE,
+        *FIGHTER_STATUS_KIND_SAVING_DAMAGE_AIR,
+        *FIGHTER_STATUS_KIND_SAVING_DAMAGE_FLY,
+        *FIGHTER_STATUS_KIND_SHIELD_BREAK_DOWN,
+        *FIGHTER_STATUS_KIND_SHIELD_BREAK_FALL,
+        *FIGHTER_STATUS_KIND_SHIELD_BREAK_FLY,
+        *FIGHTER_STATUS_KIND_SLEEP,
         *FIGHTER_STATUS_KIND_SLIP,
-        *FIGHTER_STATUS_KIND_CAPTURE_PULLED,
-        *FIGHTER_STATUS_KIND_CAPTURE_WAIT,
-        *FIGHTER_STATUS_KIND_CAPTURE_DAMAGE,
-        *FIGHTER_STATUS_KIND_CAPTURE_YOSHI,
-        *FIGHTER_STATUS_KIND_CAPTURE_ITEM,
-        *FIGHTER_STATUS_KIND_CAPTURE_BEETLE,
-        *FIGHTER_STATUS_KIND_CAPTURE_DRIVER,
-        *FIGHTER_STATUS_KIND_CAPTURE_CUT,
-        *FIGHTER_STATUS_KIND_THROWN,
-        *FIGHTER_STATUS_KIND_BIND,
-
-    ].contains(&status) || FighterStopModuleImpl::is_damage_stop(module_accessor){
-        return true;
+        *FIGHTER_STATUS_KIND_SLIP_DAMAGE,
+        *FIGHTER_STATUS_KIND_SLIP_WAIT,
+        *FIGHTER_STATUS_KIND_SLIP_STAND,
+        *FIGHTER_STATUS_KIND_SLIP_STAND_B,
+        *FIGHTER_STATUS_KIND_SLIP_STAND_F,
+        *FIGHTER_STATUS_KIND_SLIP_STAND_ATTACK,
+        *FIGHTER_STATUS_KIND_STABBED_DAMAGE,
+        *FIGHTER_STATUS_KIND_STABBED_RIDLEY,
+        *FIGHTER_STATUS_KIND_SWALLOWED,
+        *FIGHTER_STATUS_KIND_THROWN
+    ].contains(&status) {
+        true
     }
     else {
-        return false;
+        false
     }
 }
 
@@ -710,6 +730,83 @@ pub unsafe fn enable_special_hi_force(module_accessor: &mut BattleObjectModuleAc
     }
 }
 
+pub unsafe fn enable_escape_force(module_accessor: &mut BattleObjectModuleAccessor){
+    LookupSymbol(
+        &mut FIGHTER_MANAGER_ADDR,
+        "_ZN3lib9SingletonIN3app14FighterManagerEE\
+      9instance_E\u{0}"
+            .as_bytes()
+            .as_ptr(), );
+    let mut ENTRY_ID = WorkModule::get_int(module_accessor, *FIGHTER_INSTANCE_WORK_ID_INT_ENTRY_ID) as usize;
+    let FIGHTER_MANAGER = *(FIGHTER_MANAGER_ADDR as *mut *mut smash::app::FighterManager);
+    let cat1 = ControlModule::get_command_flag_cat(module_accessor, 0);
+    if (cat1 & *FIGHTER_PAD_CMD_CAT1_FLAG_ESCAPE) != 0 && !is_damage_check(module_accessor, false) && !FighterInformation::is_operation_cpu(FighterManager::get_fighter_information(FIGHTER_MANAGER,smash::app::FighterEntryID(ENTRY_ID as i32))) {
+        StatusModule::change_status_request_from_script(module_accessor, *FIGHTER_STATUS_KIND_ESCAPE, true);
+    }
+}
+
+pub unsafe fn enable_aerials_force(module_accessor: &mut BattleObjectModuleAccessor){
+    LookupSymbol(
+        &mut FIGHTER_MANAGER_ADDR,
+        "_ZN3lib9SingletonIN3app14FighterManagerEE\
+      9instance_E\u{0}"
+            .as_bytes()
+            .as_ptr(), );
+    let mut ENTRY_ID = WorkModule::get_int(module_accessor, *FIGHTER_INSTANCE_WORK_ID_INT_ENTRY_ID) as usize;
+    let FIGHTER_MANAGER = *(FIGHTER_MANAGER_ADDR as *mut *mut smash::app::FighterManager);
+    let cat1 = ControlModule::get_command_flag_cat(module_accessor, 0);
+    if [*FIGHTER_COMMAND_ATTACK_AIR_KIND_B, *FIGHTER_COMMAND_ATTACK_AIR_KIND_F,
+        *FIGHTER_COMMAND_ATTACK_AIR_KIND_N, *FIGHTER_COMMAND_ATTACK_AIR_KIND_HI,
+        *FIGHTER_COMMAND_ATTACK_AIR_KIND_LW].contains(&ControlModule::get_attack_air_kind(module_accessor)) {
+        change_status(module_accessor, *FIGHTER_STATUS_KIND_ATTACK_AIR);
+    }
+}
+
+
+pub unsafe fn enable_escape_b_force(module_accessor: &mut BattleObjectModuleAccessor){
+    LookupSymbol(
+        &mut FIGHTER_MANAGER_ADDR,
+        "_ZN3lib9SingletonIN3app14FighterManagerEE\
+      9instance_E\u{0}"
+            .as_bytes()
+            .as_ptr(), );
+    let mut ENTRY_ID = WorkModule::get_int(module_accessor, *FIGHTER_INSTANCE_WORK_ID_INT_ENTRY_ID) as usize;
+    let FIGHTER_MANAGER = *(FIGHTER_MANAGER_ADDR as *mut *mut smash::app::FighterManager);
+    let cat1 = ControlModule::get_command_flag_cat(module_accessor, 0);
+    if (cat1 & *FIGHTER_PAD_CMD_CAT1_FLAG_ESCAPE_B) != 0 && !is_damage_check(module_accessor, false) && !FighterInformation::is_operation_cpu(FighterManager::get_fighter_information(FIGHTER_MANAGER,smash::app::FighterEntryID(ENTRY_ID as i32))) {
+        StatusModule::change_status_request_from_script(module_accessor, *FIGHTER_STATUS_KIND_ESCAPE_B, true);
+    }
+}
+
+pub unsafe fn enable_escape_f_force(module_accessor: &mut BattleObjectModuleAccessor){
+    LookupSymbol(
+        &mut FIGHTER_MANAGER_ADDR,
+        "_ZN3lib9SingletonIN3app14FighterManagerEE\
+      9instance_E\u{0}"
+            .as_bytes()
+            .as_ptr(), );
+    let mut ENTRY_ID = WorkModule::get_int(module_accessor, *FIGHTER_INSTANCE_WORK_ID_INT_ENTRY_ID) as usize;
+    let FIGHTER_MANAGER = *(FIGHTER_MANAGER_ADDR as *mut *mut smash::app::FighterManager);
+    let cat1 = ControlModule::get_command_flag_cat(module_accessor, 0);
+    if (cat1 & *FIGHTER_PAD_CMD_CAT1_FLAG_ESCAPE_B) != 0 && !is_damage_check(module_accessor, false) && !FighterInformation::is_operation_cpu(FighterManager::get_fighter_information(FIGHTER_MANAGER,smash::app::FighterEntryID(ENTRY_ID as i32))) {
+        StatusModule::change_status_request_from_script(module_accessor, *FIGHTER_STATUS_KIND_ESCAPE_F, true);
+    }
+}
+
+pub unsafe fn enable_escape_air_force(module_accessor: &mut BattleObjectModuleAccessor){
+    LookupSymbol(
+        &mut FIGHTER_MANAGER_ADDR,
+        "_ZN3lib9SingletonIN3app14FighterManagerEE\
+      9instance_E\u{0}"
+            .as_bytes()
+            .as_ptr(), );
+    let mut ENTRY_ID = WorkModule::get_int(module_accessor, *FIGHTER_INSTANCE_WORK_ID_INT_ENTRY_ID) as usize;
+    let FIGHTER_MANAGER = *(FIGHTER_MANAGER_ADDR as *mut *mut smash::app::FighterManager);
+    let cat1 = ControlModule::get_command_flag_cat(module_accessor, 0);
+    if (cat1 & *FIGHTER_PAD_CMD_CAT1_FLAG_AIR_ESCAPE) != 0 && !is_damage_check(module_accessor, false) && !FighterInformation::is_operation_cpu(FighterManager::get_fighter_information(FIGHTER_MANAGER,smash::app::FighterEntryID(ENTRY_ID as i32))) {
+        StatusModule::change_status_request_from_script(module_accessor, *FIGHTER_STATUS_KIND_ESCAPE_AIR, true);
+    }
+}
 
 pub unsafe fn enable_grab_force(module_accessor: &mut BattleObjectModuleAccessor){
     LookupSymbol(
@@ -751,6 +848,14 @@ pub unsafe fn enable_smash_atk_force(module_accessor: &mut BattleObjectModuleAcc
     }
 }
 
+pub fn is_grounded(module_accessor: &mut app::BattleObjectModuleAccessor) -> bool {
+    let situation_kind;
+    unsafe {
+        situation_kind = StatusModule::situation_kind(module_accessor) as i32;
+    }
+    situation_kind == *SITUATION_KIND_GROUND
+}
+
 pub unsafe fn tech_everything(module_accessor: &mut BattleObjectModuleAccessor){
     let mut ENTRY_ID = WorkModule::get_int(module_accessor, *FIGHTER_INSTANCE_WORK_ID_INT_ENTRY_ID) as usize;
     if StatusModule::status_kind(module_accessor) == *FIGHTER_STATUS_KIND_DAMAGE_FLY || StatusModule::status_kind(module_accessor) == *FIGHTER_STATUS_KIND_DAMAGE_FLY_METEOR{
@@ -770,62 +875,6 @@ pub unsafe fn tech_everything(module_accessor: &mut BattleObjectModuleAccessor){
     }
 }
 
-pub unsafe fn whiff_stuff(module_accessor: &mut BattleObjectModuleAccessor){
-    let status_kind = StatusModule::status_kind(module_accessor);
-    if is_special(module_accessor, false) || MotionModule::motion_kind(module_accessor) == smash::hash40("special_hi_air") || MotionModule::motion_kind(module_accessor) == smash::hash40("special_hi") || AttackModule::is_attack(module_accessor, 0, false){
-        //CancelModule::enable_cancel(module_accessor);
-        //disable for now might revert
-        //WorkModule::unable_transition_term_group_ex(module_accessor, *FIGHTER_STATUS_TRANSITION_TERM_ID_CONT_DASH);
-        WorkModule::unable_transition_term_group_ex(module_accessor, *FIGHTER_STATUS_TRANSITION_TERM_ID_CONT_WALK);
-        WorkModule::unable_transition_term_group_ex(module_accessor, *FIGHTER_STATUS_TRANSITION_TERM_ID_CONT_SQUAT);
-        WorkModule::enable_transition_term_group_ex(module_accessor, *FIGHTER_STATUS_TRANSITION_TERM_ID_CONT_JUMP_SQUAT);
-        WorkModule::enable_transition_term_group_ex(module_accessor, *FIGHTER_STATUS_TRANSITION_TERM_ID_CONT_JUMP_AERIAL);
-        WorkModule::unable_transition_term_group_ex(module_accessor, *FIGHTER_STATUS_TRANSITION_TERM_ID_CONT_SPECIAL_N);
-        WorkModule::unable_transition_term_group_ex(module_accessor, *FIGHTER_STATUS_TRANSITION_TERM_ID_CONT_SPECIAL_S);
-        WorkModule::unable_transition_term_group_ex(module_accessor, *FIGHTER_STATUS_TRANSITION_TERM_ID_CONT_SPECIAL_HI);
-        WorkModule::unable_transition_term_group_ex(module_accessor, *FIGHTER_STATUS_TRANSITION_TERM_ID_CONT_SPECIAL_LW);
-        //for lucario up b
-        WorkModule::unable_transition_term_group_ex(module_accessor, *FIGHTER_STATUS_TRANSITION_TERM_ID_CONT_TURN);
-    }
-    //WorkModule::unable_transition_term_group_ex(module_accessor, *FIGHTER_STATUS_TRANSITION_TERM_ID_CONT_SQUAT);
-    if StatusModule::status_kind(module_accessor) == *FIGHTER_STATUS_KIND_ATTACK_AIR {
-        WorkModule::unable_transition_term_group_ex_all(module_accessor, *FIGHTER_STATUS_TRANSITION_TERM_ID_CONT_ATTACK_S4_HOLD);
-        WorkModule::unable_transition_term_group_ex_all(module_accessor, *FIGHTER_STATUS_TRANSITION_TERM_ID_CONT_ATTACK_HI4_HOLD);
-        WorkModule::unable_transition_term_group_ex_all(module_accessor, *FIGHTER_STATUS_TRANSITION_TERM_ID_CONT_ATTACK_LW4_HOLD);
-        WorkModule::unable_transition_term_group_ex_all(module_accessor, *FIGHTER_STATUS_TRANSITION_TERM_ID_CONT_ATTACK_S4_START);
-        WorkModule::unable_transition_term_group_ex_all(module_accessor, *FIGHTER_STATUS_TRANSITION_TERM_ID_CONT_ATTACK_HI4_START);
-        WorkModule::unable_transition_term_group_ex_all(module_accessor, *FIGHTER_STATUS_TRANSITION_TERM_ID_CONT_ATTACK_LW4_START);
-
-        WorkModule::enable_transition_term_group_ex(module_accessor, *FIGHTER_STATUS_TRANSITION_TERM_ID_CONT_SPECIAL_N);
-        WorkModule::enable_transition_term_group_ex(module_accessor, *FIGHTER_STATUS_TRANSITION_TERM_ID_CONT_SPECIAL_S);
-        WorkModule::enable_transition_term_group_ex(module_accessor, *FIGHTER_STATUS_TRANSITION_TERM_ID_CONT_SPECIAL_HI);
-        WorkModule::enable_transition_term_group_ex(module_accessor, *FIGHTER_STATUS_TRANSITION_TERM_ID_CONT_SPECIAL_LW);
-    }
-    if [*FIGHTER_STATUS_KIND_ATTACK,*FIGHTER_STATUS_KIND_ATTACK_100].contains(&status_kind) {
-        if AttackModule::is_infliction_status(module_accessor, *COLLISION_KIND_MASK_HIT){
-            //WorkModule::enable_transition_term_group_ex(module_accessor, *FIGHTER_STATUS_TRANSITION_TERM_ID_CONT_ATTACK);
-        }
-        else{
-            WorkModule::unable_transition_term_group_ex(module_accessor, *FIGHTER_STATUS_TRANSITION_TERM_ID_CONT_ATTACK);
-        }
-        WorkModule::enable_transition_term_group_ex(module_accessor, *FIGHTER_STATUS_TRANSITION_TERM_ID_CONT_ATTACK_DASH);
-        WorkModule::enable_transition_term_group_ex(module_accessor, *FIGHTER_STATUS_TRANSITION_TERM_ID_CONT_TURN);
-        WorkModule::enable_transition_term_group_ex(module_accessor, *FIGHTER_STATUS_TRANSITION_TERM_ID_CONT_ATTACK_S3);
-        WorkModule::enable_transition_term_group_ex(module_accessor, *FIGHTER_STATUS_TRANSITION_TERM_ID_CONT_ATTACK_HI3);
-        WorkModule::enable_transition_term_group_ex(module_accessor, *FIGHTER_STATUS_TRANSITION_TERM_ID_CONT_ATTACK_LW3);
-        WorkModule::enable_transition_term_group_ex(module_accessor, *FIGHTER_STATUS_TRANSITION_TERM_ID_CONT_ATTACK_S4_HOLD);
-        WorkModule::enable_transition_term_group_ex(module_accessor, *FIGHTER_STATUS_TRANSITION_TERM_ID_CONT_ATTACK_HI4_HOLD);
-        WorkModule::enable_transition_term_group_ex(module_accessor, *FIGHTER_STATUS_TRANSITION_TERM_ID_CONT_ATTACK_LW4_HOLD);
-        WorkModule::enable_transition_term_group_ex(module_accessor, *FIGHTER_STATUS_TRANSITION_TERM_ID_CONT_ATTACK_S4_START);
-        WorkModule::enable_transition_term_group_ex(module_accessor, *FIGHTER_STATUS_TRANSITION_TERM_ID_CONT_ATTACK_HI4_START);
-        WorkModule::enable_transition_term_group_ex(module_accessor, *FIGHTER_STATUS_TRANSITION_TERM_ID_CONT_ATTACK_LW4_START);
-        WorkModule::enable_transition_term_group_ex(module_accessor, *FIGHTER_STATUS_TRANSITION_TERM_ID_CONT_SPECIAL_N);
-        WorkModule::enable_transition_term_group_ex(module_accessor, *FIGHTER_STATUS_TRANSITION_TERM_ID_CONT_SPECIAL_S);
-        WorkModule::enable_transition_term_group_ex(module_accessor, *FIGHTER_STATUS_TRANSITION_TERM_ID_CONT_SPECIAL_HI);
-        WorkModule::enable_transition_term_group_ex(module_accessor, *FIGHTER_STATUS_TRANSITION_TERM_ID_CONT_SPECIAL_LW);
-    }
-
-}
 
 pub unsafe fn no_lag_shield(module_accessor: &mut BattleObjectModuleAccessor){
     let status_kind = StatusModule::status_kind(module_accessor);
@@ -1171,36 +1220,21 @@ pub fn once_per_fighter_frame(fighter: &mut smash::common::root::lua2cpp::L2CFig
 
         let mut ENTRY_ID = WorkModule::get_int(module_accessor, *FIGHTER_INSTANCE_WORK_ID_INT_ENTRY_ID) as usize;
         DIRECTION_FACING[ENTRY_ID] = PostureModule::lr(module_accessor);
+        LookupSymbol(
+            &mut FIGHTER_MANAGER_ADDR,
+            "_ZN3lib9SingletonIN3app14FighterManagerEE\
+      9instance_E\u{0}"
+                .as_bytes()
+                .as_ptr(), );
+        let FIGHTER_MANAGER = *(FIGHTER_MANAGER_ADDR as *mut *mut smash::app::FighterManager);
         //println!("{}", prev_status);
-        let mut start_count = false;
 
-        if status_kind == *FIGHTER_STATUS_KIND_TURN_DASH{
-            //PostureModule::set_lr(module_accessor, BACKWARDS_LR[ENTRY_ID]);
-            //PostureModule::update_rot_y_lr(module_accessor);
-            //KineticModule::add_speed(module_accessor, &pivot_boost);
-        }
         if status_kind == *FIGHTER_STATUS_KIND_TURN{
             StatusModule::change_status_request_from_script(module_accessor, *FIGHTER_STATUS_KIND_TURN_DASH, true);
         }
         if  [*FIGHTER_STATUS_KIND_ESCAPE_B, *FIGHTER_STATUS_KIND_ESCAPE_F, *FIGHTER_STATUS_KIND_ESCAPE].contains(&status_kind) && IS_GUARD_ON[ENTRY_ID]{
             change_status(module_accessor, *FIGHTER_STATUS_KIND_GUARD);
         }
-        /*
-
-        */
-        /*
-        if ControlModule::get_stick_x(module_accessor) == PostureModule::lr(module_accessor) * -1.0 &&
-        (cat1 & *FIGHTER_PAD_CMD_CAT1_FLAG_DASH) == 0 && (cat1 & *FIGHTER_PAD_CMD_CAT1_FLAG_TURN_DASH) == 0 &&
-        StatusModule::situation_kind(module_accessor) == *SITUATION_KIND_GROUND && !IS_GUARD_ON[ENTRY_ID]{
-            change_status(module_accessor, *FIGHTER_STATUS_KIND_GUARD_ON);
-            IS_GUARD_ON[ENTRY_ID] = true;
-        }
-        if status_kind == *FIGHTER_STATUS_KIND_GUARD_ON{
-            change_status(module_accessor, *FIGHTER_STATUS_KIND_GUARD);
-            MotionModule::set_rate(module_accessor, 0.0);
-        }
-
-         */
         let special: [i32; 225] = [*FIGHTER_STATUS_KIND_SPECIAL_N, *FIGHTER_STATUS_KIND_SPECIAL_S, *FIGHTER_STATUS_KIND_SPECIAL_HI, *FIGHTER_STATUS_KIND_SPECIAL_LW, *FIGHTER_ROY_STATUS_KIND_SPECIAL_S2, *FIGHTER_ROY_STATUS_KIND_SPECIAL_S3, *FIGHTER_ROY_STATUS_KIND_SPECIAL_S4, *FIGHTER_DOLLY_STATUS_KIND_SPECIAL_B, *FIGHTER_LINK_STATUS_KIND_SPECIAL_S2, *FIGHTER_CLOUD_STATUS_KIND_SPECIAL_S2, *FIGHTER_CLOUD_STATUS_KIND_SPECIAL_S3, *FIGHTER_IKE_STATUS_KIND_SPECIAL_HI_2, *FIGHTER_IKE_STATUS_KIND_SPECIAL_HI_3, *FIGHTER_IKE_STATUS_KIND_SPECIAL_HI_4, *FIGHTER_KROOL_STATUS_KIND_SPECIAL_HI, *FIGHTER_MARTH_STATUS_KIND_SPECIAL_S2, *FIGHTER_MARTH_STATUS_KIND_SPECIAL_S3, *FIGHTER_MARTH_STATUS_KIND_SPECIAL_S4, *FIGHTER_ROY_STATUS_KIND_SPECIAL_HI_2, *FIGHTER_ROY_STATUS_KIND_SPECIAL_HI_3, *FIGHTER_ROY_STATUS_KIND_SPECIAL_HI_4, *FIGHTER_SIMON_STATUS_KIND_SPECIAL_S2, *FIGHTER_CLOUD_STATUS_KIND_SPECIAL_HI2, *FIGHTER_IKE_STATUS_KIND_SPECIAL_N_END, *FIGHTER_IKE_STATUS_KIND_SPECIAL_S_END, *FIGHTER_KIRBY_STATUS_KIND_SPECIAL_HI2, *FIGHTER_KIRBY_STATUS_KIND_SPECIAL_HI3, *FIGHTER_KIRBY_STATUS_KIND_SPECIAL_HI4, *FIGHTER_PIT_STATUS_KIND_SPECIAL_N_DIR, *FIGHTER_PIT_STATUS_KIND_SPECIAL_S_END, *FIGHTER_ROY_STATUS_KIND_SPECIAL_N_END, *FIGHTER_RYU_STATUS_KIND_SPECIAL_S_END, *FIGHTER_SAMUS_STATUS_KIND_SPECIAL_N_C, *FIGHTER_SAMUS_STATUS_KIND_SPECIAL_N_E, *FIGHTER_SAMUS_STATUS_KIND_SPECIAL_N_F, *FIGHTER_SAMUS_STATUS_KIND_SPECIAL_N_H, *FIGHTER_SAMUS_STATUS_KIND_SPECIAL_S1A, *FIGHTER_SAMUS_STATUS_KIND_SPECIAL_S1G, *FIGHTER_SAMUS_STATUS_KIND_SPECIAL_S2A, *FIGHTER_SAMUS_STATUS_KIND_SPECIAL_S2G, *FIGHTER_YOSHI_STATUS_KIND_SPECIAL_N_1, *FIGHTER_YOSHI_STATUS_KIND_SPECIAL_N_2, *FIGHTER_FOX_STATUS_KIND_SPECIAL_LW_END, *FIGHTER_FOX_STATUS_KIND_SPECIAL_LW_HIT, *FIGHTER_IKE_STATUS_KIND_SPECIAL_LW_HIT, *FIGHTER_IKE_STATUS_KIND_SPECIAL_N_LOOP, *FIGHTER_IKE_STATUS_KIND_SPECIAL_S_DASH, *FIGHTER_IKE_STATUS_KIND_SPECIAL_S_HOLD, *FIGHTER_KOOPA_STATUS_KIND_SPECIAL_HI_A, *FIGHTER_KOOPA_STATUS_KIND_SPECIAL_HI_G, *FIGHTER_KOOPA_STATUS_KIND_SPECIAL_LW_A, *FIGHTER_KOOPA_STATUS_KIND_SPECIAL_LW_G, *FIGHTER_KOOPA_STATUS_KIND_SPECIAL_LW_L, *FIGHTER_NESS_STATUS_KIND_SPECIAL_N_END, *FIGHTER_PIT_STATUS_KIND_SPECIAL_LW_END, *FIGHTER_PIT_STATUS_KIND_SPECIAL_N_TURN, *FIGHTER_ROY_STATUS_KIND_SPECIAL_LW_HIT, *FIGHTER_ROY_STATUS_KIND_SPECIAL_N_END2, *FIGHTER_ROY_STATUS_KIND_SPECIAL_N_END3, *FIGHTER_ROY_STATUS_KIND_SPECIAL_N_LOOP, *FIGHTER_ROY_STATUS_KIND_SPECIAL_N_TURN, *FIGHTER_RYU_STATUS_KIND_SPECIAL_S_LOOP, *FIGHTER_SHULK_STATUS_KIND_SPECIAL_LW_N, *FIGHTER_ZELDA_STATUS_KIND_SPECIAL_HI_2, *FIGHTER_ZELDA_STATUS_KIND_SPECIAL_HI_3, *FIGHTER_BUDDY_STATUS_KIND_SPECIAL_S_END, *FIGHTER_DOLLY_STATUS_KIND_SPECIAL_F_END, *FIGHTER_FOX_STATUS_KIND_SPECIAL_HI_RUSH, *FIGHTER_FOX_STATUS_KIND_SPECIAL_LW_LOOP, *FIGHTER_JACK_STATUS_KIND_SPECIAL_HI_CUT, *FIGHTER_JACK_STATUS_KIND_SPECIAL_LW_END, *FIGHTER_JACK_STATUS_KIND_SPECIAL_N_JUMP, *FIGHTER_KIRBY_STATUS_KIND_SPECIAL_N_END, *FIGHTER_KROOL_STATUS_KIND_SPECIAL_N_END, *FIGHTER_KROOL_STATUS_KIND_SPECIAL_S_GET, *FIGHTER_LINK_STATUS_KIND_SPECIAL_HI_END, *FIGHTER_LUCAS_STATUS_KIND_SPECIAL_N_END, *FIGHTER_LUIGI_STATUS_KIND_SPECIAL_S_END, *FIGHTER_LUIGI_STATUS_KIND_SPECIAL_S_RAM, *FIGHTER_MARTH_STATUS_KIND_SPECIAL_N_END, *FIGHTER_MEWTWO_STATUS_KIND_SPECIAL_HI_2, *FIGHTER_MEWTWO_STATUS_KIND_SPECIAL_HI_3, *FIGHTER_NESS_STATUS_KIND_SPECIAL_HI_END, *FIGHTER_NESS_STATUS_KIND_SPECIAL_LW_END, *FIGHTER_NESS_STATUS_KIND_SPECIAL_LW_HIT, *FIGHTER_NESS_STATUS_KIND_SPECIAL_N_FIRE, *FIGHTER_NESS_STATUS_KIND_SPECIAL_N_HOLD, *FIGHTER_PEACH_STATUS_KIND_SPECIAL_N_HIT, *FIGHTER_PIT_STATUS_KIND_SPECIAL_HI_RUSH, *FIGHTER_PIT_STATUS_KIND_SPECIAL_LW_HOLD, *FIGHTER_PIT_STATUS_KIND_SPECIAL_N_SHOOT, *FIGHTER_PURIN_STATUS_KIND_SPECIAL_N_END, *FIGHTER_REFLET_STATUS_KIND_SPECIAL_HI_2, *FIGHTER_ROBOT_STATUS_KIND_SPECIAL_S_END, *FIGHTER_RYU_STATUS_KIND_SPECIAL_HI_FALL, *FIGHTER_RYU_STATUS_KIND_SPECIAL_HI_JUMP, *FIGHTER_SHEIK_STATUS_KIND_SPECIAL_S_END, *FIGHTER_SONIC_STATUS_KIND_SPECIAL_N_HIT, *FIGHTER_SONIC_STATUS_KIND_SPECIAL_S_END, *FIGHTER_WARIO_STATUS_KIND_SPECIAL_N_EAT, *FIGHTER_WARIO_STATUS_KIND_SPECIAL_N_END, *FIGHTER_WOLF_STATUS_KIND_SPECIAL_LW_END, *FIGHTER_WOLF_STATUS_KIND_SPECIAL_LW_HIT, *FIGHTER_YOSHI_STATUS_KIND_SPECIAL_S_END, *FIGHTER_ZELDA_STATUS_KIND_SPECIAL_S_END, *ITEM_PACMANKEY_STATUS_KIND_SPECIAL_HAVE, *WEAPON_JACK_DOYLE_STATUS_KIND_SPECIAL_S, *FIGHTER_BRAVE_STATUS_KIND_SPECIAL_N_HOLD, *FIGHTER_BRAVE_STATUS_KIND_SPECIAL_S_HOLD, *FIGHTER_BUDDY_STATUS_KIND_SPECIAL_S_DASH, *FIGHTER_BUDDY_STATUS_KIND_SPECIAL_S_FAIL, *FIGHTER_BUDDY_STATUS_KIND_SPECIAL_S_WALL, *FIGHTER_CLOUD_STATUS_KIND_SPECIAL_LW_END, *FIGHTER_DEDEDE_STATUS_KIND_SPECIAL_N_END, *FIGHTER_DEDEDE_STATUS_KIND_SPECIAL_S_GET, *FIGHTER_DIDDY_STATUS_KIND_SPECIAL_HI_CHARGE, *FIGHTER_DIDDY_STATUS_KIND_SPECIAL_HI_UPPER, *FIGHTER_DIDDY_STATUS_KIND_SPECIAL_HI_FALL_ROLL, *FIGHTER_DIDDY_STATUS_KIND_SPECIAL_N_BLOW, *FIGHTER_DIDDY_STATUS_KIND_SPECIAL_S_JUMP, *FIGHTER_DIDDY_STATUS_KIND_SPECIAL_S_KICK, *FIGHTER_DONKEY_STATUS_KIND_SPECIAL_N_END, *FIGHTER_FOX_STATUS_KIND_SPECIAL_HI_BOUND, *FIGHTER_GANON_STATUS_KIND_SPECIAL_LW_END, *FIGHTER_GANON_STATUS_KIND_SPECIAL_N_TURN, *FIGHTER_IKE_STATUS_KIND_SPECIAL_S_ATTACK, *FIGHTER_JACK_STATUS_KIND_SPECIAL_HI2_END, *FIGHTER_JACK_STATUS_KIND_SPECIAL_HI_PULL, *FIGHTER_JACK_STATUS_KIND_SPECIAL_LW_HOLD, *FIGHTER_KAMUI_STATUS_KIND_SPECIAL_LW_HIT, *FIGHTER_KAMUI_STATUS_KIND_SPECIAL_N_BITE, *FIGHTER_KAMUI_STATUS_KIND_SPECIAL_N_HOLD, *FIGHTER_KAMUI_STATUS_KIND_SPECIAL_S_WALL, *FIGHTER_KIRBY_STATUS_KIND_SPECIAL_N_LOOP, *FIGHTER_KIRBY_STATUS_KIND_SPECIAL_N_SPIT, *FIGHTER_KIRBY_STATUS_KIND_SPECIAL_S_FALL, *FIGHTER_KIRBY_STATUS_KIND_SPECIAL_S_JUMP, *FIGHTER_KIRBY_STATUS_KIND_SPECIAL_S_PASS, *FIGHTER_KIRBY_STATUS_KIND_SPECIAL_S_TURN, *FIGHTER_KIRBY_STATUS_KIND_SPECIAL_S_WAIT, *FIGHTER_KIRBY_STATUS_KIND_SPECIAL_S_WALK, *FIGHTER_KOOPA_STATUS_KIND_SPECIAL_S_FALL, *FIGHTER_KOOPA_STATUS_KIND_SPECIAL_S_JUMP, *FIGHTER_KROOL_STATUS_KIND_SPECIAL_LW_HIT, *FIGHTER_KROOL_STATUS_KIND_SPECIAL_N_LOOP, *FIGHTER_KROOL_STATUS_KIND_SPECIAL_N_SPIT, *FIGHTER_LINK_STATUS_KIND_SPECIAL_HI_HOLD, *FIGHTER_LITTLEMAC_STATUS_KIND_SPECIAL_N2, *FIGHTER_LUCAS_STATUS_KIND_SPECIAL_HI_END, *FIGHTER_LUCAS_STATUS_KIND_SPECIAL_LW_END, *FIGHTER_LUCAS_STATUS_KIND_SPECIAL_LW_HIT, *FIGHTER_LUCAS_STATUS_KIND_SPECIAL_N_FIRE, *FIGHTER_LUCAS_STATUS_KIND_SPECIAL_N_HOLD, *FIGHTER_LUIGI_STATUS_KIND_SPECIAL_S_WALL, *FIGHTER_MARTH_STATUS_KIND_SPECIAL_LW_HIT, *FIGHTER_MARTH_STATUS_KIND_SPECIAL_N_LOOP, *FIGHTER_MEWTWO_STATUS_KIND_SPECIAL_N_MAX, *FIGHTER_NESS_STATUS_KIND_SPECIAL_HI_HOLD, *FIGHTER_NESS_STATUS_KIND_SPECIAL_LW_HOLD, *FIGHTER_PACKUN_STATUS_KIND_SPECIAL_N_END, *FIGHTER_PACKUN_STATUS_KIND_SPECIAL_S_END, *FIGHTER_PACKUN_STATUS_KIND_SPECIAL_HI_END, *FIGHTER_PACKUN_STATUS_KIND_SPECIAL_LW_END, *FIGHTER_PACKUN_STATUS_KIND_SPECIAL_N_LOOP, *FIGHTER_PACKUN_STATUS_KIND_SPECIAL_N_WAIT, *FIGHTER_PACKUN_STATUS_KIND_SPECIAL_LW_BITE, *FIGHTER_PACKUN_STATUS_KIND_SPECIAL_N_SHOOT, *FIGHTER_PACKUN_STATUS_KIND_SPECIAL_S_SHOOT, *FIGHTER_PACKUN_STATUS_KIND_SPECIAL_S_CANCEL, *FIGHTER_PACKUN_STATUS_KIND_SPECIAL_S_CHARGE, *FIGHTER_PACKUN_STATUS_KIND_SPECIAL_LW_CHARGE, *FIGHTER_PACKUN_STATUS_KIND_SPECIAL_N_FAILURE, *FIGHTER_PACKUN_STATUS_KIND_SPECIAL_N_HIT_END, *FIGHTER_PACKUN_STATUS_KIND_SPECIAL_HI_LANDING, *FIGHTER_PACKUN_STATUS_KIND_SPECIAL_LW_FALL_END, *FIGHTER_PACKUN_STATUS_KIND_SPECIAL_S_JUMP_CANCEL, *FIGHTER_PEACH_STATUS_KIND_SPECIAL_S_JUMP, *FIGHTER_PIT_STATUS_KIND_SPECIAL_N_CHARGE, *FIGHTER_POPO_STATUS_KIND_SPECIAL_HI_FAIL, *FIGHTER_POPO_STATUS_KIND_SPECIAL_HI_JUMP, *FIGHTER_PURIN_STATUS_KIND_SPECIAL_N_HOLD, *FIGHTER_PURIN_STATUS_KIND_SPECIAL_N_ROLL, *FIGHTER_PURIN_STATUS_KIND_SPECIAL_N_TURN, *FIGHTER_RIDLEY_STATUS_KIND_SPECIAL_S_CUT, *FIGHTER_ROBOT_STATUS_KIND_SPECIAL_LW_END, *FIGHTER_SAMUS_STATUS_KIND_SPECIAL_AIR_LW, *FIGHTER_SHEIK_STATUS_KIND_SPECIAL_HI_END, *FIGHTER_SHEIK_STATUS_KIND_SPECIAL_N_LOOP, *FIGHTER_SHEIK_STATUS_KIND_SPECIAL_S_FIRE, *FIGHTER_SHEIK_STATUS_KIND_SPECIAL_S_HOLD, *FIGHTER_SHIZUE_STATUS_KIND_SPECIAL_S_CUT, *FIGHTER_SHIZUE_STATUS_KIND_SPECIAL_S_END, *FIGHTER_SHIZUE_STATUS_KIND_SPECIAL_S_HIT, *FIGHTER_SHULK_STATUS_KIND_SPECIAL_HI_ADD, *FIGHTER_SHULK_STATUS_KIND_SPECIAL_LW_HIT, *FIGHTER_SHULK_STATUS_KIND_SPECIAL_S_FALL, *FIGHTER_SHULK_STATUS_KIND_SPECIAL_S_JUMP, *FIGHTER_SNAKE_STATUS_KIND_SPECIAL_HI_CUT, *FIGHTER_SONIC_STATUS_KIND_SPECIAL_LW_END, *FIGHTER_SONIC_STATUS_KIND_SPECIAL_N_FAIL, *FIGHTER_SONIC_STATUS_KIND_SPECIAL_S_DASH, *FIGHTER_SONIC_STATUS_KIND_SPECIAL_S_HOLD, *FIGHTER_SONIC_STATUS_KIND_SPECIAL_S_TURN, *FIGHTER_WARIO_STATUS_KIND_SPECIAL_N_BITE, *FIGHTER_WARIO_STATUS_KIND_SPECIAL_N_BOMB, *FIGHTER_WARIO_STATUS_KIND_SPECIAL_N_FOOD, *FIGHTER_WARIO_STATUS_KIND_SPECIAL_N_ITEM, *FIGHTER_WARIO_STATUS_KIND_SPECIAL_S_BUMP, *FIGHTER_WARIO_STATUS_KIND_SPECIAL_S_DOWN, *FIGHTER_WARIO_STATUS_KIND_SPECIAL_S_RIDE, *FIGHTER_WIIFIT_STATUS_KIND_SPECIAL_N_END, *FIGHTER_MURABITO_STATUS_KIND_SPECIAL_HI_END, *FIGHTER_MURABITO_STATUS_KIND_SPECIAL_HI_FLAP, *FIGHTER_MURABITO_STATUS_KIND_SPECIAL_HI_TURN, *FIGHTER_MURABITO_STATUS_KIND_SPECIAL_HI_WAIT, *FIGHTER_MURABITO_STATUS_KIND_SPECIAL_HI_DETACH, *FIGHTER_MURABITO_STATUS_KIND_SPECIAL_HI_LANDING, *FIGHTER_EDGE_STATUS_KIND_SPECIAL_HI_END, *FIGHTER_EDGE_STATUS_KIND_SPECIAL_HI_RUSH, *FIGHTER_EDGE_STATUS_KIND_SPECIAL_HI_LANDING, *FIGHTER_EDGE_STATUS_KIND_SPECIAL_HI_CHARGED_RUSH, *FIGHTER_LUCARIO_STATUS_KIND_SPECIAL_HI_RUSH, *FIGHTER_LUCARIO_STATUS_KIND_SPECIAL_HI_BOUND, *FIGHTER_SONIC_STATUS_KIND_SPECIAL_HI_JUMP, *FIGHTER_ROCKMAN_STATUS_KIND_SPECIAL_HI_JUMP];
         //println!("{}", PREV_STATUS_1[ENTRY_ID]);
         if ENTRY_ID > 8 {
@@ -1219,40 +1253,6 @@ pub fn once_per_fighter_frame(fighter: &mut smash::common::root::lua2cpp::L2CFig
         }
         else{
             HIT_FRAME_COUNTER[ENTRY_ID] = 0.0;
-        }
-
-        WorkModule::off_flag(module_accessor, *FIGHTER_STATUS_TURN_FLAG_TURN);
-        WorkModule::off_flag(module_accessor, *FIGHTER_STATUS_DASH_FLAG_TURN_DASH);
-        WorkModule::off_flag(module_accessor, *FIGHTER_STATUS_RUN_BRAKE_FLAG_TURN_RUN);
-        let mut opponent_pos: f32 = -1.0;
-        LookupSymbol(
-            &mut FIGHTER_MANAGER_ADDR,
-            "_ZN3lib9SingletonIN3app14FighterManagerEE\
-      9instance_E\u{0}"
-                .as_bytes()
-                .as_ptr(), );
-        let FIGHTER_MANAGER = *(FIGHTER_MANAGER_ADDR as *mut *mut smash::app::FighterManager);
-
-        tech_everything(module_accessor);
-        auto_turnaround(module_accessor);
-        // walk_stuff(module_accessor);
-        throw_cancels(module_accessor);
-        ad_cancels(module_accessor);
-        //off_the_top_sd(module_accessor);
-        no_lag_shield(module_accessor);
-        disable_turn(module_accessor);
-
-        if StatusModule::situation_kind(module_accessor) == *SITUATION_KIND_CLIFF{
-            WorkModule::enable_transition_term(module_accessor, *FIGHTER_STATUS_TRANSITION_TERM_ID_CONT_CLIFF_ATTACK);
-            WorkModule::enable_transition_term(module_accessor, *FIGHTER_STATUS_TRANSITION_TERM_ID_CONT_CLIFF_JUMP);
-            WorkModule::enable_transition_term(module_accessor, *FIGHTER_STATUS_TRANSITION_TERM_ID_CONT_CLIFF_ESCAPE);
-            WorkModule::enable_transition_term(module_accessor, *FIGHTER_STATUS_TRANSITION_TERM_ID_CONT_CLIFF_SPEICAL);
-            WorkModule::enable_transition_term(module_accessor, *FIGHTER_STATUS_TRANSITION_TERM_ID_CONT_CLIFF_JUMP_BUTTON);
-        }
-        if !AttackModule::is_attack(module_accessor, 0, false) && !is_damage_check(module_accessor, false) &&
-            ![*FIGHTER_STATUS_KIND_THROW, *FIGHTER_STATUS_KIND_CATCH, *FIGHTER_STATUS_KIND_CATCH_CUT, *FIGHTER_STATUS_KIND_CATCH_DASH, *FIGHTER_STATUS_KIND_CATCH_JUMP,
-                *FIGHTER_STATUS_KIND_CATCH_PULL, *FIGHTER_STATUS_KIND_CATCH_TURN, *FIGHTER_STATUS_KIND_CATCH_WAIT, *FIGHTER_STATUS_KIND_CATCH_ATTACK].contains(&status_kind){
-            ////back_stick_guard(module_accessor);
         }
 
         if is_special_hi(module_accessor, false){
@@ -1284,14 +1284,25 @@ pub fn once_per_fighter_frame(fighter: &mut smash::common::root::lua2cpp::L2CFig
         if fighter_kind == *FIGHTER_KIND_SNAKE && [*FIGHTER_SNAKE_STATUS_KIND_SPECIAL_HI_CUT].contains(&status_kind){
             change_status(module_accessor, *FIGHTER_STATUS_KIND_FALL);
         }
+
         if [*FIGHTER_STATUS_KIND_THROW, *FIGHTER_STATUS_KIND_CATCH, *FIGHTER_STATUS_KIND_CATCH_CUT, *FIGHTER_STATUS_KIND_CATCH_DASH, *FIGHTER_STATUS_KIND_CATCH_JUMP,
             *FIGHTER_STATUS_KIND_CATCH_PULL, *FIGHTER_STATUS_KIND_CATCH_TURN, *FIGHTER_STATUS_KIND_CATCH_WAIT, *FIGHTER_STATUS_KIND_CATCH_ATTACK].contains(&status_kind){
             disable_catch(module_accessor);
             disable_jab(module_accessor);
         }
+
+        tech_everything(module_accessor);
+        auto_turnaround(module_accessor);
+        // walk_stuff(module_accessor);
+        throw_cancels(module_accessor);
+        ad_cancels(module_accessor);
+        //off_the_top_sd(module_accessor);
+        no_lag_shield(module_accessor);
+        disable_turn(module_accessor);
+
         dash_attack(module_accessor);
         // StatusModule::change_status_request_from_script(module_accessor, STATUS_KIND[ENTRY_ID], true);
-        if !is_damage_check(module_accessor, false) && ![*FIGHTER_STATUS_KIND_ATTACK_LW4, *FIGHTER_STATUS_KIND_ATTACK_S4, *FIGHTER_STATUS_KIND_ATTACK_HI4, *FIGHTER_STATUS_KIND_ATTACK_LW3, *FIGHTER_STATUS_KIND_ATTACK_S3, *FIGHTER_STATUS_KIND_ATTACK_HI3, *FIGHTER_STATUS_KIND_ATTACK_AIR,
+        if !is_damage_check(module_accessor, false) && is_grounded(module_accessor) && ![*FIGHTER_STATUS_KIND_ATTACK_LW4, *FIGHTER_STATUS_KIND_ATTACK_S4, *FIGHTER_STATUS_KIND_ATTACK_HI4, *FIGHTER_STATUS_KIND_ATTACK_LW3, *FIGHTER_STATUS_KIND_ATTACK_S3, *FIGHTER_STATUS_KIND_ATTACK_HI3, *FIGHTER_STATUS_KIND_ATTACK_AIR,
         *FIGHTER_DONKEY_STATUS_KIND_SHOULDER_END,
         *FIGHTER_DONKEY_STATUS_KIND_SHOULDER_FALL,
         *FIGHTER_DONKEY_STATUS_KIND_SHOULDER_JUMP,
@@ -1319,31 +1330,7 @@ pub fn once_per_fighter_frame(fighter: &mut smash::common::root::lua2cpp::L2CFig
             }
 
         }
-        /*
-        3 STILL NEED
-Tilts Hit IASA Fr25
-Normal Ledge Grab Altogether
-Remove Aerials Whiff IASA Fr25
-(Instead replace with base Aerial IASAs)
-
-13 Char Fixes  😬
-Ness pk flash has no hitbox
-ZSS Down Smash wont stun
-Sora Counter doesn't hit after
-Sora can’t spam Neutral B Fire
-Fox & Falco Neutral B Rapid bad
-Terry infinitely continues to Down B
-Allow Wii Fit Trainer to Run normally
-Minmin can't walk during neutral b/a
-Re-add the Input Character Back-Runs
-Ganon & Cloud 2nd hit of DSmash miss
-Sonic backtrots forward when flicking back
-Remove Kirby/DDD/KKR suck Infinite ‘VoD’
-Palutena Neutral B (earrape) only fires last ray
-
-         */
         //air_taunt(module_accessor);
-        //whiff_stuff(module_accessor);
         if [hash40("appeal_s_l"), hash40("appeal_s_r"), hash40("appeal_hi_l"), hash40("appeal_hi_r"), hash40("appeal_lw_l"), hash40("appeal_lw_r")].contains(&MotionModule::motion_kind(module_accessor)){
             if MotionModule::frame(module_accessor) <= 1.0{
                 HitModule::set_whole(module_accessor, smash::app::HitStatus(*HIT_STATUS_INVINCIBLE), 0);
@@ -1428,14 +1415,13 @@ Palutena Neutral B (earrape) only fires last ray
         }
 
         if [*FIGHTER_STATUS_KIND_ATTACK_LW3, *FIGHTER_STATUS_KIND_ATTACK_S3, *FIGHTER_STATUS_KIND_ATTACK_HI3].contains(&status_kind) {
-            //enable_jump(module_accessor);
-            //enable_smash_atk_force(module_accessor);
             enable_grab_force(module_accessor);
             if is_inflic(module_accessor) {
                 enable_smash_atk_force(module_accessor);
                 disable_shield(module_accessor, false);
                 if MotionModule::frame(module_accessor) >= 25.0 {
                     CancelModule::enable_cancel(module_accessor);
+                    enable_all(module_accessor);
                 }
             }
         }
@@ -1486,35 +1472,33 @@ Palutena Neutral B (earrape) only fires last ray
             if is_special_lw(module_accessor, false) || is_special_s(module_accessor, false) || is_special_n(module_accessor, false){
                 enable_special_hi_force(module_accessor);
                 enable_jump_force(module_accessor, false);
+                if is_grounded(module_accessor){
+                    enable_escape_f_force(module_accessor);
+                    enable_escape_b_force(module_accessor);
+                    enable_escape_force(module_accessor);
+                }
+                else{
+                    enable_escape_air_force(module_accessor);
+                }
             }
             else if is_special_hi(module_accessor, false){
                     enable_jump_force(module_accessor, false);
                     enable_special_lw_force(module_accessor);
                     enable_special_n_force(module_accessor);
                     enable_special_s_force(module_accessor);
-                }
-        if status_kind == *FIGHTER_STATUS_KIND_ATTACK_AIR{
-            CancelModule::enable_cancel(module_accessor);
-            //enable = false;
-            if MotionModule::frame(module_accessor) < 25.0{
-                if is_inflic(module_accessor){
-                    disable_aerials(module_accessor, false);
+                if is_grounded(module_accessor){
+                    enable_escape_f_force(module_accessor);
+                    enable_escape_b_force(module_accessor);
+                    enable_escape_force(module_accessor);
                 }
                 else{
-                    disable_aerials(module_accessor, true);
+                    enable_escape_air_force(module_accessor);
                 }
-                disable_jump(module_accessor);
-                disable_smash_atks(module_accessor);
-                disable_ground_dodge(module_accessor);
+                }
+        if status_kind == *FIGHTER_STATUS_KIND_ATTACK_AIR {
+            if is_inflic(module_accessor){
+                enable_aerials_force(module_accessor);
             }
-            else{
-                disable_aerials(module_accessor, false);
-                enable_all(module_accessor);
-            }
-
-        }
-        else{
-            enable = false;
         }
         if status_kind == *FIGHTER_STATUS_KIND_GUARD_OFF{
             CancelModule::enable_cancel(module_accessor);
