@@ -42,13 +42,13 @@ unsafe fn attack_replace(lua_state: u64) {
         l2c_agent.clear_lua_stack();
         for i in 0..36 {
             if i == 5 && !hitbox_params[6].get_f32().is_normal() && hitbox_params[i].get_f32() > 35.0{
-                l2c_agent.push_lua_stack(&mut L2CValue::new_num(hitbox_params[i].get_f32() * 2.5));
+                l2c_agent.push_lua_stack(&mut L2CValue::new_num(hitbox_params[i].get_f32() * 2.3));
             }
             else if i == 6 && !hitbox_params[i].get_f32().is_normal() {
                 l2c_agent.push_lua_stack(&mut L2CValue::new_num(1.0.into()));
             }
             else if i == 7 && !hitbox_params[6].get_f32().is_normal() {
-                l2c_agent.push_lua_stack(&mut L2CValue::new_num(hitbox_params[i].get_f32() * 2.5));
+                l2c_agent.push_lua_stack(&mut L2CValue::new_num(hitbox_params[i].get_f32() * 2.3));
             }
             else {
                 l2c_agent.push_lua_stack(&mut hitbox_params[i]);
@@ -316,6 +316,13 @@ pub unsafe fn is_cloud_ganon_dsmash(module_accessor: &mut BattleObjectModuleAcce
     [*FIGHTER_KIND_CLOUD, *FIGHTER_KIND_GANON].contains(&fighter_kind) && status_kind == *FIGHTER_STATUS_KIND_ATTACK_LW4
 }
 
+pub unsafe fn is_ganon_captain_reverse_punch(module_accessor: &mut BattleObjectModuleAccessor) -> bool{
+    let status_kind = StatusModule::status_kind(module_accessor);
+    let fighter_kind = smash::app::utility::get_kind(module_accessor);
+    [*FIGHTER_KIND_GANON, *FIGHTER_KIND_CAPTAIN].contains(&fighter_kind) &&
+        [*FIGHTER_GANON_STATUS_KIND_SPECIAL_N_TURN, *FIGHTER_CAPTAIN_STATUS_KIND_SPECIAL_N_TURN].contains(&status_kind)
+}
+
 pub unsafe fn auto_turnaround(module_accessor: &mut BattleObjectModuleAccessor){
     let mut ENTRY_ID = WorkModule::get_int(module_accessor, *FIGHTER_INSTANCE_WORK_ID_INT_ENTRY_ID) as usize;
     let mut opponent_pos: f32 = -1.0;
@@ -333,6 +340,7 @@ pub unsafe fn auto_turnaround(module_accessor: &mut BattleObjectModuleAccessor){
         *FIGHTER_STATUS_KIND_CATCH_PULL, *FIGHTER_STATUS_KIND_CATCH_TURN, *FIGHTER_STATUS_KIND_CATCH_WAIT, *FIGHTER_STATUS_KIND_CATCH_ATTACK].contains(&status_kind) &&
         !is_special_hi(module_accessor, false) && !is_special_s(module_accessor, false) &&
         !is_cloud_ganon_dsmash(module_accessor) && !CaptureModule::is_capture(module_accessor) &&
+        !is_ganon_captain_reverse_punch(module_accessor) &&
         ![*FIGHTER_STATUS_KIND_CLIFF_WAIT, *FIGHTER_STATUS_KIND_CLIFF_CATCH, *FIGHTER_STATUS_KIND_CLIFF_CLIMB, *FIGHTER_STATUS_KIND_CLIFF_JUMP1,
             *FIGHTER_STATUS_KIND_CLIFF_JUMP2, *FIGHTER_STATUS_KIND_CLIFF_JUMP3, *FIGHTER_STATUS_KIND_CLIFF_ATTACK, *FIGHTER_STATUS_KIND_CLIFF_ESCAPE,
             *FIGHTER_STATUS_KIND_CLIFF_ROBBED, *FIGHTER_STATUS_KIND_CLIFF_CATCH_MOVE].contains(&status_kind) &&
@@ -1175,7 +1183,6 @@ static mut IS_GUARD_ON:[bool;8] = [false;8];
 static mut IS_ALLOWED_SPECIAL_HI:[bool;8] = [false;8];
 static mut SPECIAL_FRAME_COUNTER : [f32;8] = [0.0;8];
 
-
 #[smashline::fighter_frame_callback]
 pub fn once_per_fighter_frame(fighter: &mut smash::common::root::lua2cpp::L2CFighterCommon) {
     unsafe {
@@ -1185,7 +1192,6 @@ pub fn once_per_fighter_frame(fighter: &mut smash::common::root::lua2cpp::L2CFig
         let status_kind = smash::app::lua_bind::StatusModule::status_kind(module_accessor);
         let cat1 = ControlModule::get_command_flag_cat(module_accessor, 0);
         let cancel_frame = FighterMotionModuleImpl::get_cancel_frame(module_accessor, Hash40::new_raw(MotionModule::motion_kind(module_accessor)), true) as f32;
-
         let mut ENTRY_ID = WorkModule::get_int(module_accessor, *FIGHTER_INSTANCE_WORK_ID_INT_ENTRY_ID) as usize;
         DIRECTION_FACING[ENTRY_ID] = PostureModule::lr(module_accessor);
         LookupSymbol(
@@ -1195,8 +1201,6 @@ pub fn once_per_fighter_frame(fighter: &mut smash::common::root::lua2cpp::L2CFig
                 .as_bytes()
                 .as_ptr(), );
         let FIGHTER_MANAGER = *(FIGHTER_MANAGER_ADDR as *mut *mut smash::app::FighterManager);
-        //println!("{}", prev_status);
-
         if status_kind == *FIGHTER_STATUS_KIND_TURN{
             IS_DASH_BACK[ENTRY_ID] = true;
             change_status(module_accessor, *FIGHTER_STATUS_KIND_DASH);
@@ -1280,7 +1284,7 @@ pub fn once_per_fighter_frame(fighter: &mut smash::common::root::lua2cpp::L2CFig
             *FIGHTER_DONKEY_STATUS_KIND_SHOULDER_START,
             *FIGHTER_DONKEY_STATUS_KIND_SHOULDER_TURN,
             *FIGHTER_DONKEY_STATUS_KIND_SHOULDER_WAIT,
-            *FIGHTER_DONKEY_STATUS_KIND_SHOULDER_WALK].contains(&status_kind) {
+            *FIGHTER_DONKEY_STATUS_KIND_SHOULDER_WALK].contains(&status_kind){
             enable_jump(module_accessor);
             enable_dash_force(module_accessor);
         }
@@ -1327,9 +1331,6 @@ pub fn once_per_fighter_frame(fighter: &mut smash::common::root::lua2cpp::L2CFig
                     disable_jab(module_accessor);
                     disable_tilts(module_accessor);
                 }
-                if [*FIGHTER_STATUS_KIND_ATTACK_LW3, *FIGHTER_STATUS_KIND_ATTACK_S3, *FIGHTER_STATUS_KIND_ATTACK_HI3].contains(&status_kind){
-
-                }
                 if status_kind == *FIGHTER_STATUS_KIND_ATTACK_AIR{
                     enable_aerials(module_accessor);
                 }
@@ -1339,9 +1340,19 @@ pub fn once_per_fighter_frame(fighter: &mut smash::common::root::lua2cpp::L2CFig
                     disable_jab(module_accessor);
                     disable_tilts(module_accessor);
                 }
-                //enable_smash_atk_force(module_accessor);
                 enable_jump_force(module_accessor, true);
-                if !is_special(module_accessor, false){
+                if is_special(module_accessor, false){
+                    disable_jab(module_accessor);
+                    disable_jab_100(module_accessor);
+                    disable_smash_atks(module_accessor);
+                    disable_tilts(module_accessor);
+                    disable_specials(module_accessor);
+                    disable_aerials(module_accessor, true);
+                    enable_special_hi_force(module_accessor);
+                    enable_special_s_force(module_accessor);
+                    enable_special_lw_force(module_accessor);
+                }
+                else{
                     enable_specials_force(module_accessor);
                 }
                 if status_kind == *FIGHTER_STATUS_KIND_ATTACK_100{
@@ -1432,36 +1443,30 @@ pub fn once_per_fighter_frame(fighter: &mut smash::common::root::lua2cpp::L2CFig
                 enable_all(module_accessor);
             }
         }
-        if is_special_s(module_accessor, false){
-            enable_special_hi_force(module_accessor);
-            enable_special_n_force(module_accessor);
-            enable_special_lw_force(module_accessor);
-            enable_jump_force(module_accessor, false);
-        }
-        if is_special_n(module_accessor, false){
-            enable_special_hi_force(module_accessor);
-            enable_special_s_force(module_accessor);
-            enable_special_lw_force(module_accessor);
-            enable_jump_force(module_accessor, false);
-        }
-        if is_special_lw(module_accessor, false){
-            enable_special_hi_force(module_accessor);
-            enable_special_n_force(module_accessor);
-            enable_special_s_force(module_accessor);
-            enable_jump_force(module_accessor, false);
-        }
-        if is_special_hi(module_accessor, false){
-            enable_special_s_force(module_accessor);
-            enable_special_n_force(module_accessor);
-            enable_special_lw_force(module_accessor);
-            enable_jump_force(module_accessor, false);
-        }
         if is_special(module_accessor, false){
+            if !is_special_lw(module_accessor, false){
+                enable_special_lw_force(module_accessor);
+            }
+            if !is_special_s(module_accessor, false){
+                enable_special_s_force(module_accessor);
+            }
+            if !is_special_hi(module_accessor, false){
+                enable_special_hi_force(module_accessor);
+            }
+            if is_special_n(module_accessor, false){
+                enable_special_hi_force(module_accessor);
+                enable_special_s_force(module_accessor);
+                enable_special_lw_force(module_accessor);
+            }
+            enable_jump_force(module_accessor, false);
             if is_grounded(module_accessor){
-                enable_tilts_force(module_accessor);
-                enable_smash_atk_force(module_accessor);
-                if (cat1 & *FIGHTER_PAD_CMD_CAT1_FLAG_ATTACK_S3) == 0{
-                    enable_attack_n_force(module_accessor);
+                if !is_inflic(module_accessor){
+                    enable_tilts_force(module_accessor);
+                    enable_smash_atk_force(module_accessor);
+                    if (cat1 & *FIGHTER_PAD_CMD_CAT1_FLAG_ATTACK_S3) == 0 && (cat1 & *FIGHTER_PAD_CMD_CAT1_FLAG_ATTACK_HI3) == 0 && (cat1 & *FIGHTER_PAD_CMD_CAT1_FLAG_ATTACK_LW3) == 0 &&
+                        (cat1 & *FIGHTER_PAD_CMD_CAT1_FLAG_ATTACK_S4) == 0 && (cat1 & *FIGHTER_PAD_CMD_CAT1_FLAG_ATTACK_HI4) == 0 && (cat1 & *FIGHTER_PAD_CMD_CAT1_FLAG_ATTACK_LW4) == 0{
+                        enable_attack_n_force(module_accessor);
+                    }
                 }
                 enable_escape_f_force(module_accessor);
                 enable_escape_b_force(module_accessor);
@@ -1469,6 +1474,9 @@ pub fn once_per_fighter_frame(fighter: &mut smash::common::root::lua2cpp::L2CFig
                 enable_dash_force(module_accessor);
             }
             else{
+                if !is_inflic(module_accessor){
+                    enable_aerials_force(module_accessor);
+                }
                 enable_escape_air_force(module_accessor);
             }
         }
