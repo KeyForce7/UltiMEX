@@ -45,13 +45,13 @@ unsafe fn attack_replace(lua_state: u64) {
         l2c_agent.clear_lua_stack();
         for i in 0..36 {
             if i == 5 && !hitbox_params[6].get_f32().is_normal() && hitbox_params[i].get_f32() > 35.0{
-                l2c_agent.push_lua_stack(&mut L2CValue::new_num(hitbox_params[i].get_f32() * 2.3));
+                l2c_agent.push_lua_stack(&mut L2CValue::new_num(hitbox_params[i].get_f32() * 2.15));
             }
             else if i == 6 && !hitbox_params[i].get_f32().is_normal() {
                 l2c_agent.push_lua_stack(&mut L2CValue::new_num(1.0.into()));
             }
             else if i == 7 && !hitbox_params[6].get_f32().is_normal() {
-                l2c_agent.push_lua_stack(&mut L2CValue::new_num(hitbox_params[i].get_f32() * 2.3));
+                l2c_agent.push_lua_stack(&mut L2CValue::new_num(hitbox_params[i].get_f32() * 2.15));
             }
             else {
                 l2c_agent.push_lua_stack(&mut hitbox_params[i]);
@@ -181,6 +181,35 @@ unsafe extern "C" fn special_fall(fighter: &mut L2CFighterCommon) -> L2CValue {
     fighter.change_status(FIGHTER_STATUS_KIND_FALL.into(), true.into());
     L2CValue::I32(0)
 }
+
+mod FighterCtrlModuleImpl2{
+    use smash::app::BattleObjectModuleAccessor;
+    extern "C"{
+        #[link_name = "\u{1}_ZN3app8lua_bind45FighterControlModuleImpl__delete_command_implEPNS_26BattleObjectModuleAccessorEij"]
+        pub fn delete_command(module_accessor: &mut BattleObjectModuleAccessor, arg2: i32, arg3: u32);
+    }
+}
+#[skyline::hook(replace=FighterCtrlModuleImpl2::delete_command)]
+pub unsafe fn delete_command_hook(module_accessor: &mut BattleObjectModuleAccessor, arg2: i32, arg3: u32){
+    /*
+    let fighter_kind = smash::app::utility::get_kind(module_accessor);
+    let status_kind = StatusModule::status_kind(module_accessor);
+    if fighter_kind == *FIGHTER_KIND_DEMON && status_kind == *FIGHTER_DEMON_STATUS_KIND_ATTACK_STEP{
+        return;
+    }
+    else{
+        original!()(module_accessor, arg2, arg3);
+    }
+
+     */
+}
+
+#[smashline::status_script(agent = "demon", status = FIGHTER_DEMON_STATUS_KIND_ATTACK_STEP, condition = LUA_SCRIPT_STATUS_FUNC_STATUS_MAIN)]
+pub unsafe fn kazuya_crouch_dash(fighter: &mut L2CFighterCommon) -> L2CValue {
+    enable_dash_force(&mut *fighter.module_accessor);
+    original!(fighter)
+}
+
 /*
 #[smashline::common_status_script(status = FIGHTER_STATUS_KIND_TURN_DASH, condition = LUA_SCRIPT_STATUS_FUNC_STATUS_MAIN)]
 pub unsafe fn turn_dash_status_main(fighter: &mut L2CFighterCommon) -> L2CValue {
@@ -195,18 +224,13 @@ pub unsafe fn dash_status_end(fighter: &mut L2CFighterCommon) -> L2CValue {
     call_original!(fighter)
 }
 
-/*
-unsafe extern "C" fn back_dash(fighter: &mut L2CFighterCommon) -> L2CValue {
-    let ENTRY_ID = WorkModule::get_int(fighter.module_accessor, *FIGHTER_INSTANCE_WORK_ID_INT_ENTRY_ID) as usize;
-    IS_DASH_BACK[ENTRY_ID] = true;
-    fighter.change_status(FIGHTER_STATUS_KIND_DASH.into(), true.into());
-    L2CValue::I32(0)
+
+#[smashline::common_status_script(status = FIGHTER_STATUS_KIND_SQUAT, condition = LUA_SCRIPT_STATUS_FUNC_STATUS_MAIN)]
+pub unsafe fn squat_main(fighter: &mut L2CFighterCommon) -> L2CValue {
+    call_original!(fighter)
 }
- */
-
 pub unsafe fn air_taunt(module_accessor: &mut BattleObjectModuleAccessor){
-    let mut ENTRY_ID = WorkModule::get_int(module_accessor, *FIGHTER_INSTANCE_WORK_ID_INT_ENTRY_ID) as usize;
-
+    let mut ENTRY_ID = get_entry_id(module_accessor);
     let status_kind = smash::app::lua_bind::StatusModule::status_kind(module_accessor);
     if StatusModule::situation_kind(module_accessor) == SITUATION_KIND_AIR{
         let stop_rise  = smash::phx::Vector3f { x: 0.0, y: 0.0, z: 1.0 };
@@ -310,6 +334,7 @@ pub unsafe fn REVERSE_LR_HOOK(arg1: u64){
 }
 
 static mut LAST_LR:[bool;8] = [false;8];
+static mut CAN_TURN:[bool;8] = [false;8];
 static mut BACKWARDS_LR:[f32;8] = [0.0;8];
 static mut CORRECT_LR:[f32;8] = [0.0;8];
 
@@ -334,21 +359,21 @@ pub unsafe fn is_sword_dance(module_accessor: &mut BattleObjectModuleAccessor) -
             *FIGHTER_MARTH_STATUS_KIND_SPECIAL_S3, *FIGHTER_ROY_STATUS_KIND_SPECIAL_S3,
             *FIGHTER_MARTH_STATUS_KIND_SPECIAL_S4, *FIGHTER_ROY_STATUS_KIND_SPECIAL_S4].contains(&status_kind)
 }
+pub unsafe fn get_entry_id(module_accessor: &mut BattleObjectModuleAccessor) -> usize{
+    WorkModule::get_int(module_accessor, *FIGHTER_INSTANCE_WORK_ID_INT_ENTRY_ID) as usize
+}
 
-pub unsafe fn auto_turnaround(module_accessor: &mut BattleObjectModuleAccessor){
-    let mut ENTRY_ID = WorkModule::get_int(module_accessor, *FIGHTER_INSTANCE_WORK_ID_INT_ENTRY_ID) as usize;
-    let mut opponent_pos: f32 = -1.0;
-    let fighter_kind = smash::app::utility::get_kind(module_accessor);
-    let status_kind = smash::app::lua_bind::StatusModule::status_kind(module_accessor);
-
+pub unsafe fn can_autoturn(module_accessor: &mut BattleObjectModuleAccessor) -> bool{
     LookupSymbol(
         &mut FIGHTER_MANAGER_ADDR,
         "_ZN3lib9SingletonIN3app14FighterManagerEE9instance_E\u{0}"
             .as_bytes()
             .as_ptr(),);
+    let ENTRY_ID = get_entry_id(module_accessor);
+    let fighter_kind = smash::app::utility::get_kind(module_accessor);
     let FIGHTER_MANAGER = *(FIGHTER_MANAGER_ADDR as *mut *mut smash::app::FighterManager);
     let status_kind = StatusModule::status_kind(module_accessor);
-    if MotionModule::motion_kind(module_accessor) != hash40("attack_air_b") && fighter_kind != *FIGHTER_KIND_NANA &&
+    MotionModule::motion_kind(module_accessor) != hash40("attack_air_b") && fighter_kind != *FIGHTER_KIND_NANA &&
         status_kind != *FIGHTER_STATUS_KIND_THROW && !is_special_hi(module_accessor, false) && !is_special_s(module_accessor, false) &&
         !is_cloud_ganon_dsmash(module_accessor) && !CaptureModule::is_capture(module_accessor) && !FighterManager::is_result_mode(FIGHTER_MANAGER) &&
         !is_ganon_captain_reverse_punch(module_accessor) &&
@@ -364,12 +389,26 @@ pub unsafe fn auto_turnaround(module_accessor: &mut BattleObjectModuleAccessor){
             *FIGHTER_DONKEY_STATUS_KIND_SHOULDER_TURN,
             *FIGHTER_DONKEY_STATUS_KIND_SHOULDER_WAIT,
             *FIGHTER_DONKEY_STATUS_KIND_SHOULDER_WALK].contains(&status_kind) &&
-        ![*FIGHTER_STATUS_KIND_RUN, *FIGHTER_STATUS_KIND_TURN_RUN].contains(&status_kind){
+        ![*FIGHTER_STATUS_KIND_WALK, *FIGHTER_STATUS_KIND_RUN, *FIGHTER_STATUS_KIND_TURN_RUN,
+            *FIGHTER_STATUS_KIND_TURN, *FIGHTER_STATUS_KIND_TURN_RUN_BRAKE, *FIGHTER_RYU_STATUS_KIND_TURN_RUN_BACK].contains(&status_kind) || CAN_TURN[ENTRY_ID]
+}
+
+pub unsafe fn auto_turnaround(module_accessor: &mut BattleObjectModuleAccessor){
+    let mut ENTRY_ID = get_entry_id(module_accessor);
+    let mut opponent_pos: f32 = -1.0;
+    let status_kind = smash::app::lua_bind::StatusModule::status_kind(module_accessor);
+
+    LookupSymbol(
+        &mut FIGHTER_MANAGER_ADDR,
+        "_ZN3lib9SingletonIN3app14FighterManagerEE9instance_E\u{0}"
+            .as_bytes()
+            .as_ptr(),);
+    let FIGHTER_MANAGER = *(FIGHTER_MANAGER_ADDR as *mut *mut smash::app::FighterManager);
+    let status_kind = StatusModule::status_kind(module_accessor);
         if ENTRY_ID == 0 || ENTRY_ID == 1 {
             POSX[ENTRY_ID] = PostureModule::pos_x(module_accessor);
         }
-
-        if ENTRY_ID == 0 {
+        if ENTRY_ID == 0 && can_autoturn(module_accessor){
             if POSX[ENTRY_ID] < POSX[1] {
                 BACKWARDS_LR[ENTRY_ID] = -1.0;
                 CORRECT_LR[ENTRY_ID] = 1.0;
@@ -383,7 +422,7 @@ pub unsafe fn auto_turnaround(module_accessor: &mut BattleObjectModuleAccessor){
                 PostureModule::update_rot_y_lr(module_accessor);
             }
         }
-        if ENTRY_ID == 1 {
+        if ENTRY_ID == 1 &&  can_autoturn(module_accessor){
             if POSX[ENTRY_ID] < POSX[0] {
                 BACKWARDS_LR[ENTRY_ID] = -1.0;
                 CORRECT_LR[ENTRY_ID] = 1.0;
@@ -398,8 +437,6 @@ pub unsafe fn auto_turnaround(module_accessor: &mut BattleObjectModuleAccessor){
                 PostureModule::update_rot_y_lr(module_accessor);
             }
         }
-
-    }
     if MotionModule::motion_kind(module_accessor) == hash40("attack_air_b"){
         PostureModule::set_lr(module_accessor, BACKWARDS_LR[ENTRY_ID]);
         PostureModule::update_rot_y_lr(module_accessor);
@@ -636,8 +673,7 @@ pub unsafe fn enable_aerials(module_accessor: &mut BattleObjectModuleAccessor){
 static mut BCK_FRAME_COUNTER:[f32;8] = [0.0;8];
 
 pub unsafe fn is_back_flick(module_accessor: &mut BattleObjectModuleAccessor) -> bool{
-    let mut ENTRY_ID = WorkModule::get_int(module_accessor, *FIGHTER_INSTANCE_WORK_ID_INT_ENTRY_ID) as usize;
-    if IS_LEFT[ENTRY_ID]{
+    let mut ENTRY_ID = get_entry_id(module_accessor);    if IS_LEFT[ENTRY_ID]{
         if ControlModule::get_stick_x(module_accessor) == 1.0{
             BCK_FRAME_COUNTER[ENTRY_ID] += 1.0;
         }
@@ -665,8 +701,7 @@ pub unsafe fn enable_tilts_force(module_accessor: &mut BattleObjectModuleAccesso
       9instance_E\u{0}"
             .as_bytes()
             .as_ptr(), );
-    let mut ENTRY_ID = WorkModule::get_int(module_accessor, *FIGHTER_INSTANCE_WORK_ID_INT_ENTRY_ID) as usize;
-    let FIGHTER_MANAGER = *(FIGHTER_MANAGER_ADDR as *mut *mut smash::app::FighterManager);
+    let mut ENTRY_ID = get_entry_id(module_accessor);    let FIGHTER_MANAGER = *(FIGHTER_MANAGER_ADDR as *mut *mut smash::app::FighterManager);
     let cat1 = ControlModule::get_command_flag_cat(module_accessor, 0);
     if (cat1 & *FIGHTER_PAD_CMD_CAT1_FLAG_ATTACK_S3) != 0 && !is_damage_check(module_accessor, false) && StatusModule::situation_kind(module_accessor) == *SITUATION_KIND_GROUND && !FighterInformation::is_operation_cpu(FighterManager::get_fighter_information(FIGHTER_MANAGER,smash::app::FighterEntryID(ENTRY_ID as i32))) {
         StatusModule::change_status_request_from_script(module_accessor, *FIGHTER_STATUS_KIND_ATTACK_S3, true);
@@ -686,19 +721,18 @@ pub unsafe fn enable_specials_force(module_accessor: &mut BattleObjectModuleAcce
       9instance_E\u{0}"
             .as_bytes()
             .as_ptr(), );
-    let mut ENTRY_ID = WorkModule::get_int(module_accessor, *FIGHTER_INSTANCE_WORK_ID_INT_ENTRY_ID) as usize;
-    let FIGHTER_MANAGER = *(FIGHTER_MANAGER_ADDR as *mut *mut smash::app::FighterManager);
+    let mut ENTRY_ID = get_entry_id(module_accessor);    let FIGHTER_MANAGER = *(FIGHTER_MANAGER_ADDR as *mut *mut smash::app::FighterManager);
     let cat1 = ControlModule::get_command_flag_cat(module_accessor, 0);
-    if (cat1 & *FIGHTER_PAD_CMD_CAT1_FLAG_SPECIAL_N) != 0 && !is_damage_check(module_accessor, false) && !FighterInformation::is_operation_cpu(FighterManager::get_fighter_information(FIGHTER_MANAGER,smash::app::FighterEntryID(ENTRY_ID as i32))) {
+    if (cat1 & *FIGHTER_PAD_CMD_CAT1_FLAG_SPECIAL_N) != 0 && !FighterInformation::is_operation_cpu(FighterManager::get_fighter_information(FIGHTER_MANAGER,smash::app::FighterEntryID(ENTRY_ID as i32))) {
         StatusModule::change_status_request_from_script(module_accessor, *FIGHTER_STATUS_KIND_SPECIAL_N, true);
     }
-    if (cat1 & *FIGHTER_PAD_CMD_CAT1_FLAG_SPECIAL_S) != 0 && !is_damage_check(module_accessor, false) && !FighterInformation::is_operation_cpu(FighterManager::get_fighter_information(FIGHTER_MANAGER,smash::app::FighterEntryID(ENTRY_ID as i32))) {
+    if (cat1 & *FIGHTER_PAD_CMD_CAT1_FLAG_SPECIAL_S) != 0 && !FighterInformation::is_operation_cpu(FighterManager::get_fighter_information(FIGHTER_MANAGER,smash::app::FighterEntryID(ENTRY_ID as i32))) {
         StatusModule::change_status_request_from_script(module_accessor, *FIGHTER_STATUS_KIND_SPECIAL_S, true);
     }
-    if (cat1 & *FIGHTER_PAD_CMD_CAT1_FLAG_SPECIAL_HI) != 0 && !is_damage_check(module_accessor, false) && !FighterInformation::is_operation_cpu(FighterManager::get_fighter_information(FIGHTER_MANAGER,smash::app::FighterEntryID(ENTRY_ID as i32))) {
+    if (cat1 & *FIGHTER_PAD_CMD_CAT1_FLAG_SPECIAL_HI) != 0 && !FighterInformation::is_operation_cpu(FighterManager::get_fighter_information(FIGHTER_MANAGER,smash::app::FighterEntryID(ENTRY_ID as i32))) {
         StatusModule::change_status_request_from_script(module_accessor, *FIGHTER_STATUS_KIND_SPECIAL_HI, true);
     }
-    if (cat1 & *FIGHTER_PAD_CMD_CAT1_FLAG_SPECIAL_LW) != 0 && !is_damage_check(module_accessor, false) && ![*FIGHTER_KIND_PTRAINER, *FIGHTER_KIND_PLIZARDON, *FIGHTER_KIND_PZENIGAME, *FIGHTER_KIND_PFUSHIGISOU, *FIGHTER_KIND_TANTAN, *FIGHTER_KIND_PIKMIN].contains(&smash::app::utility::get_kind(module_accessor)) && !FighterInformation::is_operation_cpu(FighterManager::get_fighter_information(FIGHTER_MANAGER,smash::app::FighterEntryID(ENTRY_ID as i32))) {
+    if (cat1 & *FIGHTER_PAD_CMD_CAT1_FLAG_SPECIAL_LW) != 0 && ![*FIGHTER_KIND_PTRAINER, *FIGHTER_KIND_PLIZARDON, *FIGHTER_KIND_PZENIGAME, *FIGHTER_KIND_PFUSHIGISOU, *FIGHTER_KIND_TANTAN, *FIGHTER_KIND_PIKMIN].contains(&smash::app::utility::get_kind(module_accessor)) && !FighterInformation::is_operation_cpu(FighterManager::get_fighter_information(FIGHTER_MANAGER,smash::app::FighterEntryID(ENTRY_ID as i32))) {
         StatusModule::change_status_request_from_script(module_accessor, *FIGHTER_STATUS_KIND_SPECIAL_LW, true);
     }
 }
@@ -710,8 +744,7 @@ pub unsafe fn enable_special_n_force(module_accessor: &mut BattleObjectModuleAcc
       9instance_E\u{0}"
             .as_bytes()
             .as_ptr(), );
-    let mut ENTRY_ID = WorkModule::get_int(module_accessor, *FIGHTER_INSTANCE_WORK_ID_INT_ENTRY_ID) as usize;
-    let FIGHTER_MANAGER = *(FIGHTER_MANAGER_ADDR as *mut *mut smash::app::FighterManager);
+    let mut ENTRY_ID = get_entry_id(module_accessor);    let FIGHTER_MANAGER = *(FIGHTER_MANAGER_ADDR as *mut *mut smash::app::FighterManager);
     let cat1 = ControlModule::get_command_flag_cat(module_accessor, 0);
     if (cat1 & *FIGHTER_PAD_CMD_CAT1_FLAG_SPECIAL_N) != 0 && !is_damage_check(module_accessor, false) && !FighterInformation::is_operation_cpu(FighterManager::get_fighter_information(FIGHTER_MANAGER,smash::app::FighterEntryID(ENTRY_ID as i32))) {
         StatusModule::change_status_request_from_script(module_accessor, *FIGHTER_STATUS_KIND_SPECIAL_N, true);
@@ -725,8 +758,7 @@ pub unsafe fn enable_special_s_force(module_accessor: &mut BattleObjectModuleAcc
       9instance_E\u{0}"
             .as_bytes()
             .as_ptr(), );
-    let mut ENTRY_ID = WorkModule::get_int(module_accessor, *FIGHTER_INSTANCE_WORK_ID_INT_ENTRY_ID) as usize;
-    let FIGHTER_MANAGER = *(FIGHTER_MANAGER_ADDR as *mut *mut smash::app::FighterManager);
+    let mut ENTRY_ID = get_entry_id(module_accessor);    let FIGHTER_MANAGER = *(FIGHTER_MANAGER_ADDR as *mut *mut smash::app::FighterManager);
     let cat1 = ControlModule::get_command_flag_cat(module_accessor, 0);
     if (cat1 & *FIGHTER_PAD_CMD_CAT1_FLAG_SPECIAL_S) != 0 && !is_damage_check(module_accessor, false) && !FighterInformation::is_operation_cpu(FighterManager::get_fighter_information(FIGHTER_MANAGER,smash::app::FighterEntryID(ENTRY_ID as i32))) {
         StatusModule::change_status_request_from_script(module_accessor, *FIGHTER_STATUS_KIND_SPECIAL_S, true);
@@ -740,8 +772,7 @@ pub unsafe fn enable_special_lw_force(module_accessor: &mut BattleObjectModuleAc
       9instance_E\u{0}"
             .as_bytes()
             .as_ptr(), );
-    let mut ENTRY_ID = WorkModule::get_int(module_accessor, *FIGHTER_INSTANCE_WORK_ID_INT_ENTRY_ID) as usize;
-    let FIGHTER_MANAGER = *(FIGHTER_MANAGER_ADDR as *mut *mut smash::app::FighterManager);
+    let mut ENTRY_ID = get_entry_id(module_accessor);    let FIGHTER_MANAGER = *(FIGHTER_MANAGER_ADDR as *mut *mut smash::app::FighterManager);
     let cat1 = ControlModule::get_command_flag_cat(module_accessor, 0);
     if (cat1 & *FIGHTER_PAD_CMD_CAT1_FLAG_SPECIAL_LW) != 0 && !is_damage_check(module_accessor, false) && ![*FIGHTER_KIND_PTRAINER, *FIGHTER_KIND_PLIZARDON, *FIGHTER_KIND_PZENIGAME, *FIGHTER_KIND_PFUSHIGISOU, *FIGHTER_KIND_TANTAN, *FIGHTER_KIND_PIKMIN].contains(&smash::app::utility::get_kind(module_accessor)) && !FighterInformation::is_operation_cpu(FighterManager::get_fighter_information(FIGHTER_MANAGER,smash::app::FighterEntryID(ENTRY_ID as i32))) {
         StatusModule::change_status_request_from_script(module_accessor, *FIGHTER_STATUS_KIND_SPECIAL_LW, true);
@@ -755,8 +786,7 @@ pub unsafe fn enable_special_hi_force(module_accessor: &mut BattleObjectModuleAc
       9instance_E\u{0}"
             .as_bytes()
             .as_ptr(), );
-    let mut ENTRY_ID = WorkModule::get_int(module_accessor, *FIGHTER_INSTANCE_WORK_ID_INT_ENTRY_ID) as usize;
-    let FIGHTER_MANAGER = *(FIGHTER_MANAGER_ADDR as *mut *mut smash::app::FighterManager);
+    let mut ENTRY_ID = get_entry_id(module_accessor);    let FIGHTER_MANAGER = *(FIGHTER_MANAGER_ADDR as *mut *mut smash::app::FighterManager);
     let cat1 = ControlModule::get_command_flag_cat(module_accessor, 0);
     if (cat1 & *FIGHTER_PAD_CMD_CAT1_FLAG_SPECIAL_HI) != 0 && !is_damage_check(module_accessor, false) && !FighterInformation::is_operation_cpu(FighterManager::get_fighter_information(FIGHTER_MANAGER,smash::app::FighterEntryID(ENTRY_ID as i32))) {
         StatusModule::change_status_request_from_script(module_accessor, *FIGHTER_STATUS_KIND_SPECIAL_HI, true);
@@ -770,8 +800,7 @@ pub unsafe fn enable_attack_n_force(module_accessor: &mut BattleObjectModuleAcce
       9instance_E\u{0}"
             .as_bytes()
             .as_ptr(), );
-    let mut ENTRY_ID = WorkModule::get_int(module_accessor, *FIGHTER_INSTANCE_WORK_ID_INT_ENTRY_ID) as usize;
-    let FIGHTER_MANAGER = *(FIGHTER_MANAGER_ADDR as *mut *mut smash::app::FighterManager);
+    let mut ENTRY_ID = get_entry_id(module_accessor);    let FIGHTER_MANAGER = *(FIGHTER_MANAGER_ADDR as *mut *mut smash::app::FighterManager);
     let cat1 = ControlModule::get_command_flag_cat(module_accessor, 0);
     if (cat1 & *FIGHTER_PAD_CMD_CAT1_FLAG_ATTACK_N) != 0 && !is_damage_check(module_accessor, false) && !FighterInformation::is_operation_cpu(FighterManager::get_fighter_information(FIGHTER_MANAGER,smash::app::FighterEntryID(ENTRY_ID as i32))) {
         StatusModule::change_status_request_from_script(module_accessor, *FIGHTER_STATUS_KIND_ATTACK, true);
@@ -785,8 +814,7 @@ pub unsafe fn enable_catch_force(module_accessor: &mut BattleObjectModuleAccesso
       9instance_E\u{0}"
             .as_bytes()
             .as_ptr(), );
-    let mut ENTRY_ID = WorkModule::get_int(module_accessor, *FIGHTER_INSTANCE_WORK_ID_INT_ENTRY_ID) as usize;
-    let FIGHTER_MANAGER = *(FIGHTER_MANAGER_ADDR as *mut *mut smash::app::FighterManager);
+    let mut ENTRY_ID = get_entry_id(module_accessor);    let FIGHTER_MANAGER = *(FIGHTER_MANAGER_ADDR as *mut *mut smash::app::FighterManager);
     let cat1 = ControlModule::get_command_flag_cat(module_accessor, 0);
     if (cat1 & *FIGHTER_PAD_CMD_CAT1_FLAG_CATCH) != 0 && !is_damage_check(module_accessor, false) && !FighterInformation::is_operation_cpu(FighterManager::get_fighter_information(FIGHTER_MANAGER,smash::app::FighterEntryID(ENTRY_ID as i32))) {
         StatusModule::change_status_request_from_script(module_accessor, *FIGHTER_STATUS_KIND_CATCH, true);
@@ -800,8 +828,7 @@ pub unsafe fn enable_escape_force(module_accessor: &mut BattleObjectModuleAccess
       9instance_E\u{0}"
             .as_bytes()
             .as_ptr(), );
-    let mut ENTRY_ID = WorkModule::get_int(module_accessor, *FIGHTER_INSTANCE_WORK_ID_INT_ENTRY_ID) as usize;
-    let FIGHTER_MANAGER = *(FIGHTER_MANAGER_ADDR as *mut *mut smash::app::FighterManager);
+    let mut ENTRY_ID = get_entry_id(module_accessor);    let FIGHTER_MANAGER = *(FIGHTER_MANAGER_ADDR as *mut *mut smash::app::FighterManager);
     let cat1 = ControlModule::get_command_flag_cat(module_accessor, 0);
     if (cat1 & *FIGHTER_PAD_CMD_CAT1_FLAG_ESCAPE) != 0 && !is_damage_check(module_accessor, false) && !FighterInformation::is_operation_cpu(FighterManager::get_fighter_information(FIGHTER_MANAGER,smash::app::FighterEntryID(ENTRY_ID as i32))) {
         StatusModule::change_status_request_from_script(module_accessor, *FIGHTER_STATUS_KIND_ESCAPE, true);
@@ -815,8 +842,7 @@ pub unsafe fn enable_aerials_force(module_accessor: &mut BattleObjectModuleAcces
       9instance_E\u{0}"
             .as_bytes()
             .as_ptr(), );
-    let mut ENTRY_ID = WorkModule::get_int(module_accessor, *FIGHTER_INSTANCE_WORK_ID_INT_ENTRY_ID) as usize;
-    let FIGHTER_MANAGER = *(FIGHTER_MANAGER_ADDR as *mut *mut smash::app::FighterManager);
+    let mut ENTRY_ID = get_entry_id(module_accessor);    let FIGHTER_MANAGER = *(FIGHTER_MANAGER_ADDR as *mut *mut smash::app::FighterManager);
     let cat1 = ControlModule::get_command_flag_cat(module_accessor, 0);
     if [*FIGHTER_COMMAND_ATTACK_AIR_KIND_B, *FIGHTER_COMMAND_ATTACK_AIR_KIND_F,
         *FIGHTER_COMMAND_ATTACK_AIR_KIND_N, *FIGHTER_COMMAND_ATTACK_AIR_KIND_HI,
@@ -833,8 +859,7 @@ pub unsafe fn enable_escape_b_force(module_accessor: &mut BattleObjectModuleAcce
       9instance_E\u{0}"
             .as_bytes()
             .as_ptr(), );
-    let mut ENTRY_ID = WorkModule::get_int(module_accessor, *FIGHTER_INSTANCE_WORK_ID_INT_ENTRY_ID) as usize;
-    let FIGHTER_MANAGER = *(FIGHTER_MANAGER_ADDR as *mut *mut smash::app::FighterManager);
+    let mut ENTRY_ID = get_entry_id(module_accessor);    let FIGHTER_MANAGER = *(FIGHTER_MANAGER_ADDR as *mut *mut smash::app::FighterManager);
     let cat1 = ControlModule::get_command_flag_cat(module_accessor, 0);
     if (cat1 & *FIGHTER_PAD_CMD_CAT1_FLAG_ESCAPE_B) != 0 && !is_damage_check(module_accessor, false) && !FighterInformation::is_operation_cpu(FighterManager::get_fighter_information(FIGHTER_MANAGER,smash::app::FighterEntryID(ENTRY_ID as i32))) {
         StatusModule::change_status_request_from_script(module_accessor, *FIGHTER_STATUS_KIND_ESCAPE_B, true);
@@ -848,8 +873,7 @@ pub unsafe fn enable_escape_f_force(module_accessor: &mut BattleObjectModuleAcce
       9instance_E\u{0}"
             .as_bytes()
             .as_ptr(), );
-    let mut ENTRY_ID = WorkModule::get_int(module_accessor, *FIGHTER_INSTANCE_WORK_ID_INT_ENTRY_ID) as usize;
-    let FIGHTER_MANAGER = *(FIGHTER_MANAGER_ADDR as *mut *mut smash::app::FighterManager);
+    let mut ENTRY_ID = get_entry_id(module_accessor);    let FIGHTER_MANAGER = *(FIGHTER_MANAGER_ADDR as *mut *mut smash::app::FighterManager);
     let cat1 = ControlModule::get_command_flag_cat(module_accessor, 0);
     if (cat1 & *FIGHTER_PAD_CMD_CAT1_FLAG_ESCAPE_B) != 0 && !is_damage_check(module_accessor, false) && !FighterInformation::is_operation_cpu(FighterManager::get_fighter_information(FIGHTER_MANAGER,smash::app::FighterEntryID(ENTRY_ID as i32))) {
         StatusModule::change_status_request_from_script(module_accessor, *FIGHTER_STATUS_KIND_ESCAPE_F, true);
@@ -863,8 +887,7 @@ pub unsafe fn enable_escape_air_force(module_accessor: &mut BattleObjectModuleAc
       9instance_E\u{0}"
             .as_bytes()
             .as_ptr(), );
-    let mut ENTRY_ID = WorkModule::get_int(module_accessor, *FIGHTER_INSTANCE_WORK_ID_INT_ENTRY_ID) as usize;
-    let FIGHTER_MANAGER = *(FIGHTER_MANAGER_ADDR as *mut *mut smash::app::FighterManager);
+    let mut ENTRY_ID = get_entry_id(module_accessor);    let FIGHTER_MANAGER = *(FIGHTER_MANAGER_ADDR as *mut *mut smash::app::FighterManager);
     let cat1 = ControlModule::get_command_flag_cat(module_accessor, 0);
     if (cat1 & *FIGHTER_PAD_CMD_CAT1_FLAG_AIR_ESCAPE) != 0 && !is_damage_check(module_accessor, false) && !FighterInformation::is_operation_cpu(FighterManager::get_fighter_information(FIGHTER_MANAGER,smash::app::FighterEntryID(ENTRY_ID as i32))) {
         StatusModule::change_status_request_from_script(module_accessor, *FIGHTER_STATUS_KIND_ESCAPE_AIR, true);
@@ -878,8 +901,7 @@ pub unsafe fn enable_grab_force(module_accessor: &mut BattleObjectModuleAccessor
       9instance_E\u{0}"
             .as_bytes()
             .as_ptr(), );
-    let mut ENTRY_ID = WorkModule::get_int(module_accessor, *FIGHTER_INSTANCE_WORK_ID_INT_ENTRY_ID) as usize;
-    let FIGHTER_MANAGER = *(FIGHTER_MANAGER_ADDR as *mut *mut smash::app::FighterManager);
+    let mut ENTRY_ID = get_entry_id(module_accessor);    let FIGHTER_MANAGER = *(FIGHTER_MANAGER_ADDR as *mut *mut smash::app::FighterManager);
     let cat1 = ControlModule::get_command_flag_cat(module_accessor, 0);
     if (cat1 & *FIGHTER_PAD_CMD_CAT1_FLAG_CATCH) != 0 && !is_damage_check(module_accessor, false) && !FighterInformation::is_operation_cpu(FighterManager::get_fighter_information(FIGHTER_MANAGER,smash::app::FighterEntryID(ENTRY_ID as i32))) {
         StatusModule::change_status_request_from_script(module_accessor, *FIGHTER_STATUS_KIND_CATCH, true);
@@ -893,8 +915,7 @@ pub unsafe fn enable_smash_atk_force(module_accessor: &mut BattleObjectModuleAcc
       9instance_E\u{0}"
             .as_bytes()
             .as_ptr(), );
-    let mut ENTRY_ID = WorkModule::get_int(module_accessor, *FIGHTER_INSTANCE_WORK_ID_INT_ENTRY_ID) as usize;
-
+    let mut ENTRY_ID = get_entry_id(module_accessor);
     let FIGHTER_MANAGER = *(FIGHTER_MANAGER_ADDR as *mut *mut smash::app::FighterManager);
     let cat1 = ControlModule::get_command_flag_cat(module_accessor, 0);
     if (cat1 & *FIGHTER_PAD_CMD_CAT1_FLAG_ATTACK_S4) != 0 && !is_damage_check(module_accessor, false) && StatusModule::situation_kind(module_accessor) == *SITUATION_KIND_GROUND && !FighterInformation::is_operation_cpu(FighterManager::get_fighter_information(FIGHTER_MANAGER,smash::app::FighterEntryID(ENTRY_ID as i32))) {
@@ -925,8 +946,7 @@ pub fn is_grounded(module_accessor: &mut app::BattleObjectModuleAccessor) -> boo
 }
 
 pub unsafe fn tech_everything(module_accessor: &mut BattleObjectModuleAccessor){
-    let mut ENTRY_ID = WorkModule::get_int(module_accessor, *FIGHTER_INSTANCE_WORK_ID_INT_ENTRY_ID) as usize;
-    if StatusModule::status_kind(module_accessor) == *FIGHTER_STATUS_KIND_DAMAGE_FLY || StatusModule::status_kind(module_accessor) == *FIGHTER_STATUS_KIND_DAMAGE_FLY_METEOR{
+    let mut ENTRY_ID = get_entry_id(module_accessor);    if StatusModule::status_kind(module_accessor) == *FIGHTER_STATUS_KIND_DAMAGE_FLY || StatusModule::status_kind(module_accessor) == *FIGHTER_STATUS_KIND_DAMAGE_FLY_METEOR{
         TECH_FRAME[ENTRY_ID]+=1;
     } else {
         TECH_FRAME[ENTRY_ID] = 0;
@@ -965,13 +985,17 @@ pub unsafe fn no_lag_shield(module_accessor: &mut BattleObjectModuleAccessor){
         WorkModule::enable_transition_term_group_ex(module_accessor, *FIGHTER_STATUS_TRANSITION_TERM_ID_CONT_DASH);
         WorkModule::enable_transition_term_group_ex(module_accessor, *FIGHTER_STATUS_TRANSITION_TERM_ID_CONT_SQUAT);
     }
+
+}
+
+pub unsafe fn get_cancel_frame(module_accessor: &mut BattleObjectModuleAccessor) -> f32{
+    FighterMotionModuleImpl::get_cancel_frame(module_accessor, smash::phx::Hash40::new_raw(MotionModule::motion_kind(module_accessor)), true) as f32
 }
 
 static mut IS_ALLOW_AD_ATK_AIR:[bool;8] = [false;8];
 pub unsafe fn ad_cancels(module_accessor: &mut BattleObjectModuleAccessor){
     let mut ENTRY_ID = WorkModule::get_int(module_accessor, *FIGHTER_INSTANCE_WORK_ID_INT_ENTRY_ID) as usize;
     let status_kind = StatusModule::status_kind(module_accessor);
-    enable_jump(module_accessor);
     if StatusModule::situation_kind(module_accessor) == SITUATION_KIND_GROUND || StatusModule::situation_kind(module_accessor) == SITUATION_KIND_CLIFF{
         AIRDODGE[ENTRY_ID] = 2;
     }
@@ -1015,17 +1039,17 @@ pub unsafe fn ad_cancels(module_accessor: &mut BattleObjectModuleAccessor){
         AIRDODGE[ENTRY_ID] -= 1;
         WorkModule::enable_transition_term_group_ex(module_accessor, *FIGHTER_STATUS_TRANSITION_TERM_ID_CONT_SPECIAL_HI);
     }
-
     if CancelModule::is_enable_cancel(module_accessor) && StatusModule::situation_kind(module_accessor) == SITUATION_KIND_AIR && ControlModule::check_button_on(module_accessor,*CONTROL_PAD_BUTTON_GUARD) && AIRDODGE[ENTRY_ID]>0 && status_kind != *FIGHTER_STATUS_KIND_ATTACK_AIR{
         StatusModule::change_status_request_from_script(module_accessor, *FIGHTER_STATUS_KIND_ESCAPE_AIR, true);
     }
     if [*FIGHTER_STATUS_KIND_ESCAPE, *FIGHTER_STATUS_KIND_ESCAPE_B, *FIGHTER_STATUS_KIND_ESCAPE_F].contains(&status_kind){
-        let cancelframe_d = FighterMotionModuleImpl::get_cancel_frame(module_accessor, smash::phx::Hash40::new_raw(MotionModule::motion_kind(module_accessor)), true) as f32;
-        if MotionModule::frame(module_accessor) >= cancelframe_d {
+        let cancel_frame = get_cancel_frame(module_accessor);
+        if MotionModule::frame(module_accessor) >= cancel_frame {
             CancelModule::enable_cancel(module_accessor);
         }
     }
     if [*FIGHTER_STATUS_KIND_ESCAPE_AIR, *FIGHTER_STATUS_KIND_ESCAPE_AIR_SLIDE].contains(&status_kind){
+        MotionModule::set_rate(module_accessor, 2.0);
         CancelModule::enable_cancel(module_accessor);
     }
 }
@@ -1050,7 +1074,7 @@ pub unsafe fn enable_jump_force(module_accessor: &mut BattleObjectModuleAccessor
             StatusModule::change_status_request_from_script(module_accessor, *FIGHTER_STATUS_KIND_JUMP_AERIAL, true);
         }
         else if ControlModule::check_button_trigger(module_accessor, *CONTROL_PAD_BUTTON_JUMP) && StatusModule::situation_kind(module_accessor) == *SITUATION_KIND_GROUND{
-            StatusModule::change_status_request_from_script(module_accessor, *FIGHTER_STATUS_KIND_JUMP, true);
+            StatusModule::change_status_request_from_script(module_accessor, *FIGHTER_STATUS_KIND_JUMP_SQUAT, true);
         }
     }
     else{
@@ -1081,14 +1105,58 @@ pub unsafe fn dash_attack(module_accessor: &mut BattleObjectModuleAccessor){
 
     }
 }
+
+pub fn crouch_jump(module_accessor: &mut BattleObjectModuleAccessor){
+    unsafe{
+        let status_kind = StatusModule::status_kind(module_accessor);
+        let prev_status_kind = StatusModule::prev_status_kind(module_accessor, 0);
+        let cat1 = ControlModule::get_command_flag_cat(module_accessor, 0);
+        if [*FIGHTER_STATUS_KIND_SQUAT, *FIGHTER_STATUS_KIND_SQUAT_WAIT, *FIGHTER_STATUS_KIND_SQUAT_B,
+            *FIGHTER_STATUS_KIND_SQUAT_F, *FIGHTER_STATUS_KIND_SQUAT_RV].contains(&StatusModule::prev_status_kind(module_accessor, 1)) &&
+            status_kind == *FIGHTER_STATUS_KIND_JUMP{
+            if MotionModule::frame(module_accessor) < MotionModule::end_frame(module_accessor) / 8.0{
+                PostureModule::add_pos(module_accessor, &smash::phx::Vector3f {
+                    x: 0.0,
+                    y: 10.0,
+                    z: 0.0
+                });
+            }
+        }
+    }
+}
+
+
+pub unsafe fn aerial_smash_atks(module_accessor: &mut BattleObjectModuleAccessor){
+    let status_kind = StatusModule::status_kind(module_accessor);
+    let mut ENTRY_ID = get_entry_id(module_accessor);
+    if ControlModule::check_button_trigger(module_accessor, *CONTROL_PAD_BUTTON_SMASH) &&
+          !is_grounded(module_accessor) &&
+        !is_damage_check(module_accessor, false){
+            if ControlModule::get_stick_y(module_accessor) > 0.5{
+                change_status(module_accessor, *FIGHTER_STATUS_KIND_ATTACK_HI4_HOLD);
+            }
+            else if ControlModule::get_stick_y(module_accessor) < -0.5 {
+                change_status(module_accessor, *FIGHTER_STATUS_KIND_ATTACK_LW4_HOLD);
+            }
+            else{
+                change_status(module_accessor, *FIGHTER_STATUS_KIND_ATTACK_S4_HOLD);
+            }
+    }
+    if [*FIGHTER_STATUS_KIND_ATTACK_S4_HOLD, *FIGHTER_STATUS_KIND_ATTACK_HI4_HOLD, *FIGHTER_STATUS_KIND_ATTACK_LW4_HOLD,
+        *FIGHTER_STATUS_KIND_ATTACK_S4_START, *FIGHTER_STATUS_KIND_ATTACK_HI4_START, *FIGHTER_STATUS_KIND_ATTACK_LW4_START,
+        *FIGHTER_STATUS_KIND_ATTACK_S4, *FIGHTER_STATUS_KIND_ATTACK_HI4, *FIGHTER_STATUS_KIND_ATTACK_LW4].contains(&status_kind){
+        StatusModule::set_situation_kind(module_accessor, app::SituationKind(*SITUATION_KIND_GROUND), true);
+    }
+}
+
+
 static mut TOTAL_DASHES_INPUTS:[i32;8] = [0;8];
 static mut ALLOW_DASH:[bool;8] = [false;8];
 static mut IS_DASH_INPUT:[bool;8] = [false;8];
 
 #[smashline::common_status_script(status = FIGHTER_STATUS_KIND_DASH, condition = LUA_SCRIPT_STATUS_FUNC_STATUS_MAIN)]
 pub unsafe fn fighter_dash_main(fighter: &mut L2CFighterCommon) -> L2CValue {
-    let mut ENTRY_ID = WorkModule::get_int(fighter.module_accessor, *FIGHTER_INSTANCE_WORK_ID_INT_ENTRY_ID) as usize;
-
+    let mut ENTRY_ID = get_entry_id(&mut *fighter.module_accessor);
     if !ALLOW_DASH[ENTRY_ID]{
         fighter.sub_shift_status_main(L2CValue::Ptr(run as *const () as _))
     }
@@ -1112,8 +1180,8 @@ static mut IS_DASH_BACK:[bool;8] = [false;8];
 static mut CAN_DASH:[bool;8] = [false;8];
 
 pub unsafe fn enable_dash_force(module_accessor: &mut BattleObjectModuleAccessor){
-    let mut ENTRY_ID = WorkModule::get_int(module_accessor, *FIGHTER_INSTANCE_WORK_ID_INT_ENTRY_ID) as usize;
-    let status_kind = smash::app::lua_bind::StatusModule::status_kind(module_accessor);
+    let mut ENTRY_ID = get_entry_id(module_accessor);
+    let status_kind = StatusModule::status_kind(module_accessor);
     let vel_3f = KineticModule::get_sum_speed3f(module_accessor, *KINETIC_ENERGY_RESERVE_ATTRIBUTE_MAIN);
     let FIGHTER_MANAGER = *(FIGHTER_MANAGER_ADDR as *mut *mut smash::app::FighterManager);
     let cat1 = ControlModule::get_command_flag_cat(module_accessor, 0);
@@ -1180,8 +1248,7 @@ pub unsafe fn enable_dash_force(module_accessor: &mut BattleObjectModuleAccessor
 
 
 pub unsafe fn walk_stuff(module_accessor: &mut BattleObjectModuleAccessor){
-    let mut ENTRY_ID = WorkModule::get_int(module_accessor, *FIGHTER_INSTANCE_WORK_ID_INT_ENTRY_ID) as usize;
-    let status_kind = smash::app::lua_bind::StatusModule::status_kind(module_accessor);
+    let mut ENTRY_ID = get_entry_id(module_accessor);    let status_kind = smash::app::lua_bind::StatusModule::status_kind(module_accessor);
     let vel_3f = KineticModule::get_sum_speed3f(module_accessor, *KINETIC_ENERGY_RESERVE_ATTRIBUTE_MAIN);
 
     let FIGHTER_MANAGER = *(FIGHTER_MANAGER_ADDR as *mut *mut smash::app::FighterManager);
@@ -1212,6 +1279,10 @@ pub unsafe fn walk_stuff(module_accessor: &mut BattleObjectModuleAccessor){
 
 pub unsafe fn is_inflic(module_accessor: &mut BattleObjectModuleAccessor) -> bool{
     AttackModule::is_infliction_status(module_accessor, *COLLISION_KIND_MASK_HIT)
+}
+
+pub unsafe fn is_inflic_any(module_accessor: &mut BattleObjectModuleAccessor) -> bool{
+    AttackModule::is_infliction_status(module_accessor, *COLLISION_KIND_MASK_ALL)
 }
 pub unsafe fn off_the_top_sd(module_accessor: &mut BattleObjectModuleAccessor){
     if PostureModule::pos_y(module_accessor) > 180.0{
@@ -1251,6 +1322,17 @@ pub unsafe fn critical_zoom(fighter: &mut L2CFighterCommon, rate : u8, frames : 
     }
 }
 
+#[smashline::fighter_reset]
+fn fighter_reset(fighter: &mut L2CFighterCommon) {
+    unsafe{
+        let lua_state = fighter.lua_state_agent;
+        let module_accessor = smash::app::sv_system::battle_object_module_accessor(lua_state);
+    let mut ENTRY_ID = get_entry_id(module_accessor);
+        IS_DASH_BACK[ENTRY_ID] = false;
+        AIR_TIME_COUNTER[ENTRY_ID] = 0.0;
+    }
+}
+
 #[smashline::fighter_frame_callback]
 pub fn once_per_fighter_frame(fighter: &mut L2CFighterCommon) {
     unsafe {
@@ -1260,7 +1342,7 @@ pub fn once_per_fighter_frame(fighter: &mut L2CFighterCommon) {
         let status_kind = smash::app::lua_bind::StatusModule::status_kind(module_accessor);
         let cat1 = ControlModule::get_command_flag_cat(module_accessor, 0);
         let cancel_frame = FighterMotionModuleImpl::get_cancel_frame(module_accessor, Hash40::new_raw(MotionModule::motion_kind(module_accessor)), true) as f32;
-        let mut ENTRY_ID = WorkModule::get_int(module_accessor, *FIGHTER_INSTANCE_WORK_ID_INT_ENTRY_ID) as usize;
+        let mut ENTRY_ID = get_entry_id(module_accessor);
         DIRECTION_FACING[ENTRY_ID] = PostureModule::lr(module_accessor);
 
         LookupSymbol(
@@ -1270,22 +1352,32 @@ pub fn once_per_fighter_frame(fighter: &mut L2CFighterCommon) {
                 .as_bytes()
                 .as_ptr(), );
         let FIGHTER_MANAGER = *(FIGHTER_MANAGER_ADDR as *mut *mut smash::app::FighterManager);
-        if status_kind == *FIGHTER_STATUS_KIND_TURN{
-            IS_DASH_BACK[ENTRY_ID] = true;
-            change_status(module_accessor, *FIGHTER_STATUS_KIND_DASH);
+        if [*FIGHTER_STATUS_KIND_TURN, *FIGHTER_RYU_STATUS_KIND_TURN_RUN_BACK].contains(&status_kind){
+            //IS_DASH_BACK[ENTRY_ID] = true;
+            //change_status(module_accessor, *FIGHTER_STATUS_KIND_DASH);
         }
         if  [*FIGHTER_STATUS_KIND_ESCAPE_B, *FIGHTER_STATUS_KIND_ESCAPE_F, *FIGHTER_STATUS_KIND_ESCAPE].contains(&status_kind) && IS_GUARD_ON[ENTRY_ID]{
             change_status(module_accessor, *FIGHTER_STATUS_KIND_GUARD);
         }
 
-        if !is_grounded(module_accessor){
+        if is_inflic_any(module_accessor) || is_damage_check(module_accessor, false){
+            AIR_TIME_COUNTER[ENTRY_ID] = 0.0;
+            CAN_TIMER_COUNT[ENTRY_ID] = false;
+        }
+        else if !is_grounded(module_accessor){
             CAN_TIMER_COUNT[ENTRY_ID] = true;
         }
         if CAN_TIMER_COUNT[ENTRY_ID]{
             AIR_TIME_COUNTER[ENTRY_ID] += 1.0;
         }
+        if is_grounded(module_accessor){
+            CAN_TIMER_COUNT[ENTRY_ID] = false;
+            if AIR_TIME_COUNTER[ENTRY_ID] > 0.0{
+                AIR_TIME_COUNTER[ENTRY_ID] -= 1.0;
+            }
+        }
         if AIR_TIME_COUNTER[ENTRY_ID] == 300.0{
-            //change_status(module_accessor, *FIGHTER_STATUS_KIND_DEAD);
+            change_status(module_accessor, *FIGHTER_STATUS_KIND_DEAD);
             AIR_TIME_COUNTER[ENTRY_ID] = 0.0;
         }
         if ENTRY_ID > 8 {
@@ -1294,12 +1386,10 @@ pub fn once_per_fighter_frame(fighter: &mut L2CFighterCommon) {
         if fighter_kind == *FIGHTER_KIND_YOSHI{
             WorkModule::set_int(module_accessor, 0, *FIGHTER_YOSHI_INSTANCE_WORK_ID_INT_HOP_COUNT);
         }
-        if is_damage_check(module_accessor, false) || is_damage_check(module_accessor, true){
+        if is_damage_check(module_accessor, false){
             HIT_FRAME_COUNTER[ENTRY_ID] += 1.0;
-            if HIT_FRAME_COUNTER[ENTRY_ID] >= 120.00{
-                if (cat1 & *FIGHTER_PAD_CMD_CAT1_FLAG_SPECIAL_HI) != 0{
-                    change_status(module_accessor, *FIGHTER_STATUS_KIND_SPECIAL_HI);
-                }
+            if HIT_FRAME_COUNTER[ENTRY_ID] >= 120.0{
+                enable_specials_force(module_accessor);
             }
         }
         else{
@@ -1353,6 +1443,10 @@ pub fn once_per_fighter_frame(fighter: &mut L2CFighterCommon) {
         no_lag_shield(module_accessor);
         disable_turn(module_accessor);
         dash_attack(module_accessor);
+        crouch_jump(module_accessor);
+        if !(is_special(module_accessor, false) && is_inflic(module_accessor)){
+            aerial_smash_atks(module_accessor);
+        }
 
         // StatusModule::change_status_request_from_script(module_accessor, STATUS_KIND[ENTRY_ID], true);
         if !is_damage_check(module_accessor, false) && is_grounded(module_accessor) && ![*FIGHTER_STATUS_KIND_ATTACK_LW4, *FIGHTER_STATUS_KIND_ATTACK_S4, *FIGHTER_STATUS_KIND_ATTACK_HI4, *FIGHTER_STATUS_KIND_ATTACK_LW3, *FIGHTER_STATUS_KIND_ATTACK_S3, *FIGHTER_STATUS_KIND_ATTACK_HI3, *FIGHTER_STATUS_KIND_ATTACK_AIR,
@@ -1383,7 +1477,6 @@ pub fn once_per_fighter_frame(fighter: &mut L2CFighterCommon) {
             }
 
         }
-        //air_taunt(module_accessor);
         if [hash40("appeal_s_l"), hash40("appeal_s_r"), hash40("appeal_hi_l"), hash40("appeal_hi_r"), hash40("appeal_lw_l"), hash40("appeal_lw_r")].contains(&MotionModule::motion_kind(module_accessor)){
             if MotionModule::frame(module_accessor) <= 1.0{
                 HitModule::set_whole(module_accessor, smash::app::HitStatus(*HIT_STATUS_INVINCIBLE), 0);
@@ -1530,7 +1623,8 @@ pub fn once_per_fighter_frame(fighter: &mut L2CFighterCommon) {
         }
         if is_special(module_accessor, false) &&
         ![*FIGHTER_DEMON_STATUS_KIND_ATTACK_STAND_1, *FIGHTER_DEMON_STATUS_KIND_ATTACK_STAND_2, *FIGHTER_DEMON_STATUS_KIND_ATTACK_STAND_3,
-                *FIGHTER_DEMON_STATUS_KIND_ATTACK_STAND_4, *FIGHTER_DEMON_STATUS_KIND_ATTACK_STAND_5, *FIGHTER_DEMON_STATUS_KIND_ATTACK_STAND_6].contains(&status_kind){
+                *FIGHTER_DEMON_STATUS_KIND_ATTACK_STAND_4, *FIGHTER_DEMON_STATUS_KIND_ATTACK_STAND_5, *FIGHTER_DEMON_STATUS_KIND_ATTACK_STAND_6,
+            *FIGHTER_TRAIL_STATUS_KIND_ATTACK_AIR_N, *FIGHTER_TRAIL_STATUS_KIND_ATTACK_AIR_F].contains(&status_kind){
             if !is_sword_dance(module_accessor){
                 if !is_special_lw(module_accessor, false){
                     enable_special_lw_force(module_accessor);
@@ -1579,6 +1673,7 @@ pub fn once_per_fighter_frame(fighter: &mut L2CFighterCommon) {
             if is_inflic(module_accessor){
                 enable_aerials_force(module_accessor);
             }
+            enable_specials_force(module_accessor);
         }
         if status_kind == *FIGHTER_STATUS_KIND_GUARD_OFF{
             CancelModule::enable_cancel(module_accessor);
@@ -1677,4 +1772,5 @@ pub fn install(){
     smashline::install_agent_frame_callbacks!(once_per_fighter_frame);
     smashline::install_status_scripts!(fall_status_main, dash_status_end);
     skyline::install_hooks!(attack_replace);
+    smashline::install_agent_resets!(fighter_reset);
 }
