@@ -7,14 +7,17 @@ use smash::hash40;
 use smash::app::lua_bind::*;
 use smashline::*;
 use smash::*;
-use smash::app::{BattleObjectModuleAccessor, FighterUtil, SituationKind, smashball};
+use smash::app::{BattleObjectModuleAccessor, Fighter, FighterUtil, SituationKind, smashball};
 use std::mem;
 use smash::app::sv_module_access;
 use smash::app::sv_battle_object;
 use smash::phx::{Hash40, Vector4f};
 use skyline::nn::ro::LookupSymbol;
 use std::time::Duration;
+use skyline::libc::c_int;
 use smash::app::lua_bind::StatusModule::prev_status_kind;
+use smash::app::smashball::is_training_mode;
+use smash::app::sv_math::rand;
 use smash::lua2cpp::L2CFighterCommon;
 use smash::cpp::root::app::lua_bind::ArticleModule::change_motion;
 use smash::lib::*;
@@ -498,8 +501,8 @@ pub unsafe fn can_autoturn(module_accessor: &mut BattleObjectModuleAccessor) -> 
 
     let is_allow_turn = MotionModule::motion_kind(module_accessor) != hash40("attack_air_b") && fighter_kind != *FIGHTER_KIND_NANA &&
         status_kind != *FIGHTER_STATUS_KIND_THROW && !is_special_hi(module_accessor, false) && !is_special_s(module_accessor, false) &&
-         ![*FIGHTER_STATUS_KIND_ATTACK, *FIGHTER_STATUS_KIND_ATTACK_100].contains(&status_kind) &&
-        ![*FIGHTER_STATUS_KIND_DASH].contains(&status_kind) &&
+         // ![*FIGHTER_STATUS_KIND_ATTACK, *FIGHTER_STATUS_KIND_ATTACK_100].contains(&status_kind) &&
+        // ![*FIGHTER_STATUS_KIND_DASH, *FIGHTER_STATUS_KIND_TURN_DASH].contains(&status_kind) &&
         ![*FIGHTER_STATUS_KIND_ESCAPE, *FIGHTER_STATUS_KIND_ESCAPE_B, *FIGHTER_STATUS_KIND_ESCAPE_F].contains(&status_kind) &&
         ![*FIGHTER_STATUS_KIND_ITEM_THROW].contains(&status_kind) &&
         !is_cloud_ganon_dsmash(module_accessor) && !CaptureModule::is_capture(module_accessor) && !FighterManager::is_result_mode(FIGHTER_MANAGER) &&
@@ -982,19 +985,26 @@ pub fn is_grounded(module_accessor: &mut app::BattleObjectModuleAccessor) -> boo
 }
 
 pub unsafe fn tech_everything(module_accessor: &mut BattleObjectModuleAccessor){
-    let mut ENTRY_ID = get_entry_id(module_accessor);    if StatusModule::status_kind(module_accessor) == *FIGHTER_STATUS_KIND_DAMAGE_FLY || StatusModule::status_kind(module_accessor) == *FIGHTER_STATUS_KIND_DAMAGE_FLY_METEOR{
+    let mut ENTRY_ID = get_entry_id(module_accessor);
+    if StatusModule::status_kind(module_accessor) == *FIGHTER_STATUS_KIND_DAMAGE_FLY || StatusModule::status_kind(module_accessor) == *FIGHTER_STATUS_KIND_DAMAGE_FLY_METEOR{
         TECH_FRAME[ENTRY_ID]+=1;
     } else {
         TECH_FRAME[ENTRY_ID] = 0;
     }
     if TECH_FRAME[ENTRY_ID]<=15 && TECH_FRAME[ENTRY_ID]>0 && !WorkModule::is_flag(module_accessor, *FIGHTER_INSTANCE_WORK_ID_FLAG_DEATH_PREDICTION){
-        if ControlModule::check_button_trigger(module_accessor, *CONTROL_PAD_BUTTON_GUARD){
-            StatusModule::change_status_request_from_script(module_accessor, *FIGHTER_STATUS_KIND_PASSIVE_WALL, true);
+        if is_cpu(module_accessor){
+            change_status(module_accessor, *FIGHTER_STATUS_KIND_PASSIVE_WALL);
+        }
+        else if ControlModule::check_button_trigger(module_accessor, *CONTROL_PAD_BUTTON_GUARD){
+            change_status(module_accessor, *FIGHTER_STATUS_KIND_PASSIVE_WALL);
         }
     }
     else if TECH_FRAME[ENTRY_ID]<=20 && TECH_FRAME[ENTRY_ID]>0 && WorkModule::is_flag(module_accessor, *FIGHTER_INSTANCE_WORK_ID_FLAG_DEATH_PREDICTION){
-        if ControlModule::check_button_trigger(module_accessor, *CONTROL_PAD_BUTTON_GUARD){
-            StatusModule::change_status_request_from_script(module_accessor, *FIGHTER_STATUS_KIND_PASSIVE_WALL, true);
+        if is_cpu(module_accessor){
+            change_status(module_accessor, *FIGHTER_STATUS_KIND_PASSIVE_WALL);
+        }
+        else if ControlModule::check_button_trigger(module_accessor, *CONTROL_PAD_BUTTON_GUARD){
+            change_status(module_accessor, *FIGHTER_STATUS_KIND_PASSIVE_WALL);
         }
     }
 }
@@ -1279,6 +1289,10 @@ static mut IS_DASH_BACK_LEFT:[bool;8] = [false;8];
 static mut IS_DASH_BACK:[bool;8] = [false;8];
 static mut CAN_DASH:[bool;8] = [false;8];
 
+pub unsafe fn get_entry_count() -> i32 {
+    FighterManager::entry_count(get_fighter_manager())
+}
+
 pub unsafe fn enable_dash_force(module_accessor: &mut BattleObjectModuleAccessor){
     let mut ENTRY_ID = get_entry_id(module_accessor);
     let status_kind = StatusModule::status_kind(module_accessor);
@@ -1324,9 +1338,14 @@ pub unsafe fn enable_dash_force(module_accessor: &mut BattleObjectModuleAccessor
                         }
                     }
                     else{
-                        change_status(module_accessor, *FIGHTER_STATUS_KIND_DASH);
+                        if !is_training_mode() && get_entry_count() > 2 && (cat1 & *FIGHTER_PAD_CMD_CAT1_FLAG_TURN_DASH) != 0{
+                            change_status(module_accessor, *FIGHTER_STATUS_KIND_TURN_DASH);
+                        }
+                        else{
+                            change_status(module_accessor, *FIGHTER_STATUS_KIND_DASH);
+                        }
                     }
-                    if ControlModule::get_stick_x(module_accessor) == BACKWARDS_LR[ENTRY_ID] &&
+                    if get_entry_count() <= 2 && ControlModule::get_stick_x(module_accessor) == BACKWARDS_LR[ENTRY_ID] &&
                         ![*FIGHTER_KIND_RYU, *FIGHTER_KIND_KEN, *FIGHTER_KIND_DOLLY, *FIGHTER_KIND_DEMON].contains(&fighter_kind) {
                         IS_DASH_BACK[ENTRY_ID] = true;
                     }
@@ -1341,12 +1360,17 @@ pub unsafe fn enable_dash_force(module_accessor: &mut BattleObjectModuleAccessor
             }
         }
     }
-    if [*FIGHTER_STATUS_KIND_TURN_DASH].contains(&status_kind) &&
+    if is_training_mode() && [*FIGHTER_STATUS_KIND_TURN_DASH].contains(&status_kind) &&
         ![*FIGHTER_KIND_RYU, *FIGHTER_KIND_KEN, *FIGHTER_KIND_DOLLY, *FIGHTER_KIND_DEMON].contains(&fighter_kind){
         IS_DASH_BACK[ENTRY_ID] = true;
         change_status(module_accessor, *FIGHTER_STATUS_KIND_DASH);
     }
-    if [*FIGHTER_STATUS_KIND_DASH, *FIGHTER_RYU_STATUS_KIND_DASH_BACK, *FIGHTER_DOLLY_STATUS_KIND_DASH_BACK, *FIGHTER_DEMON_STATUS_KIND_DASH_BACK].contains(&status_kind){
+    else if get_entry_count() <= 2 && [*FIGHTER_STATUS_KIND_TURN_DASH].contains(&status_kind) &&
+        ![*FIGHTER_KIND_RYU, *FIGHTER_KIND_KEN, *FIGHTER_KIND_DOLLY, *FIGHTER_KIND_DEMON].contains(&fighter_kind){
+        IS_DASH_BACK[ENTRY_ID] = true;
+        change_status(module_accessor, *FIGHTER_STATUS_KIND_DASH);
+    }
+    if [*FIGHTER_STATUS_KIND_DASH].contains(&status_kind){
         if IS_DASH_BACK[ENTRY_ID]{
             KineticModule::clear_speed_all(module_accessor);
             KineticModule::add_speed(module_accessor, &pivot_boost);
@@ -1360,8 +1384,19 @@ pub unsafe fn enable_dash_force(module_accessor: &mut BattleObjectModuleAccessor
                 WAIT_FRAME_COUNTER[ENTRY_ID] = 0.0;
                 HitModule::set_whole(module_accessor, smash::app::HitStatus(*HIT_STATUS_NORMAL), 0);
             }
-
-            StatusModule::change_status_request_from_script(module_accessor, *FIGHTER_STATUS_KIND_WAIT, true);
+            change_status(module_accessor, *FIGHTER_STATUS_KIND_WAIT);
+        }
+    }
+    else if [*FIGHTER_STATUS_KIND_TURN_DASH, *FIGHTER_RYU_STATUS_KIND_DASH_BACK, *FIGHTER_DOLLY_STATUS_KIND_DASH_BACK, *FIGHTER_DEMON_STATUS_KIND_DASH_BACK].contains(&status_kind){
+        if ControlModule::get_stick_y(module_accessor) >= 0.7{
+            if WAIT_FRAME_COUNTER[ENTRY_ID] < 5.0{
+                HitModule::set_whole(module_accessor, smash::app::HitStatus(*HIT_STATUS_INVINCIBLE), 0);
+            }
+            else{
+                WAIT_FRAME_COUNTER[ENTRY_ID] = 0.0;
+                HitModule::set_whole(module_accessor, smash::app::HitStatus(*HIT_STATUS_NORMAL), 0);
+            }
+            change_status(module_accessor, *FIGHTER_STATUS_KIND_WAIT);
         }
     }
 }
@@ -1584,30 +1619,54 @@ pub fn once_per_fighter_frame(fighter: &mut L2CFighterCommon) {
         if fighter_kind == *FIGHTER_KIND_YOSHI{
             WorkModule::set_int(module_accessor, 0, *FIGHTER_YOSHI_INSTANCE_WORK_ID_INT_HOP_COUNT);
         }
-        if !is_cpu(module_accessor) && is_damage_check(module_accessor, false) && !CaptureModule::is_capture(module_accessor) &&
+        if is_damage_check(module_accessor, false) && !CaptureModule::is_capture(module_accessor) &&
             ![*FIGHTER_STATUS_KIND_CLUNG_THROWN_BLANK_DIDDY,
                 *FIGHTER_STATUS_KIND_CLUNG_THROWN_DIDDY, *FIGHTER_STATUS_KIND_THROWN, *FIGHTER_STATUS_KIND_MEWTWO_THROWN].contains(&status_kind) && !is_anyplayer_final(){
             HIT_FRAME_COUNTER[ENTRY_ID] += 1.0;
-            if HIT_FRAME_COUNTER[ENTRY_ID] >= 20.0{
-                if (cat1 & *FIGHTER_PAD_CMD_CAT1_FLAG_SPECIAL_N) != 0{
-                    KineticModule::clear_speed_all(module_accessor);
-                    change_status(module_accessor, *FIGHTER_STATUS_KIND_SPECIAL_N);
-                    IS_CTR_HIT[ENTRY_ID] = true;
+            if HIT_FRAME_COUNTER[ENTRY_ID] >= 120.0{
+                if is_cpu(module_accessor){
+                    let rand = rand(hash40("fighter"), 4);
+                    match rand {
+                        1 => {
+                            change_status(module_accessor, *FIGHTER_STATUS_KIND_SPECIAL_N);
+                            IS_CTR_HIT[ENTRY_ID] = true;
+                        }
+                        2 => {
+                            change_status(module_accessor, *FIGHTER_STATUS_KIND_SPECIAL_S);
+                            IS_CTR_HIT[ENTRY_ID] = true;
+                        }
+                        3 => {
+                            change_status(module_accessor, *FIGHTER_STATUS_KIND_SPECIAL_HI);
+                            IS_CTR_HIT[ENTRY_ID] = true;
+                        }
+                        4 => {
+                            change_status(module_accessor, *FIGHTER_STATUS_KIND_SPECIAL_LW);
+                            IS_CTR_HIT[ENTRY_ID] = true;
+                        }
+                        _ => {}
+                    }
                 }
-                if (cat1 & *FIGHTER_PAD_CMD_CAT1_FLAG_SPECIAL_S) != 0{
-                    KineticModule::clear_speed_all(module_accessor);
-                    change_status(module_accessor, *FIGHTER_STATUS_KIND_SPECIAL_S);
-                    IS_CTR_HIT[ENTRY_ID] = true;
-                }
-                if (cat1 & *FIGHTER_PAD_CMD_CAT1_FLAG_SPECIAL_HI) != 0{
-                    KineticModule::clear_speed_all(module_accessor);
-                    change_status(module_accessor, *FIGHTER_STATUS_KIND_SPECIAL_HI);
-                    IS_CTR_HIT[ENTRY_ID] = true;
-                }
-                if (cat1 & *FIGHTER_PAD_CMD_CAT1_FLAG_SPECIAL_LW) != 0{
-                    KineticModule::clear_speed_all(module_accessor);
-                    change_status(module_accessor, *FIGHTER_STATUS_KIND_SPECIAL_LW);
-                    IS_CTR_HIT[ENTRY_ID] = true;
+                else{
+                    if (cat1 & *FIGHTER_PAD_CMD_CAT1_FLAG_SPECIAL_N) != 0{
+                        KineticModule::clear_speed_all(module_accessor);
+                        change_status(module_accessor, *FIGHTER_STATUS_KIND_SPECIAL_N);
+                        IS_CTR_HIT[ENTRY_ID] = true;
+                    }
+                    if (cat1 & *FIGHTER_PAD_CMD_CAT1_FLAG_SPECIAL_S) != 0{
+                        KineticModule::clear_speed_all(module_accessor);
+                        change_status(module_accessor, *FIGHTER_STATUS_KIND_SPECIAL_S);
+                        IS_CTR_HIT[ENTRY_ID] = true;
+                    }
+                    if (cat1 & *FIGHTER_PAD_CMD_CAT1_FLAG_SPECIAL_HI) != 0{
+                        KineticModule::clear_speed_all(module_accessor);
+                        change_status(module_accessor, *FIGHTER_STATUS_KIND_SPECIAL_HI);
+                        IS_CTR_HIT[ENTRY_ID] = true;
+                    }
+                    if (cat1 & *FIGHTER_PAD_CMD_CAT1_FLAG_SPECIAL_LW) != 0{
+                        KineticModule::clear_speed_all(module_accessor);
+                        change_status(module_accessor, *FIGHTER_STATUS_KIND_SPECIAL_LW);
+                        IS_CTR_HIT[ENTRY_ID] = true;
+                    }
                 }
             }
         }
@@ -1660,13 +1719,15 @@ pub fn once_per_fighter_frame(fighter: &mut L2CFighterCommon) {
             disable_catch(module_accessor);
             disable_jab(module_accessor);
         }
-        if !is_anyplayer_final() && !is_cpu(module_accessor){
+        if !is_anyplayer_final(){
             tech_everything(module_accessor);
         }
-        if !smashball::is_training_mode() && FighterManager::entry_count(FIGHTER_MANAGER) <= 2{
-
+        if smashball::is_training_mode(){
+            auto_turnaround(module_accessor);
         }
-        auto_turnaround(module_accessor);
+        else if FighterManager::entry_count(FIGHTER_MANAGER) <= 2{
+            auto_turnaround(module_accessor);
+        }
         // walk_stuff(module_accessor);
         throw_cancels(module_accessor);
         ad_cancels(module_accessor);
@@ -1941,14 +2002,18 @@ pub fn once_per_fighter_frame(fighter: &mut L2CFighterCommon) {
             }
         }
         if status_kind == *FIGHTER_STATUS_KIND_ATTACK_AIR {
-            if is_inflic(module_accessor) && is_atk_air_input(module_accessor) && !IS_USED_AERIAL_2[ENTRY_ID]{
-                change_status(module_accessor, *FIGHTER_STATUS_KIND_ATTACK_AIR);
-                IS_USED_AERIAL_2[ENTRY_ID] = true;
+            if is_inflic(module_accessor){
+                if is_atk_air_input(module_accessor){
+                    NUM_AERIALS[ENTRY_ID] +=1;
+                }
+                if NUM_AERIALS[ENTRY_ID] < 3{
+                    enable_aerials_force(module_accessor);
+                }
             }
             enable_specials_force(module_accessor);
         }
         else{
-            IS_USED_AERIAL_2[ENTRY_ID] = false;
+            NUM_AERIALS[ENTRY_ID] = 0;
         }
         if status_kind == *FIGHTER_STATUS_KIND_GUARD_OFF{
             CancelModule::enable_cancel(module_accessor);
@@ -1999,9 +2064,9 @@ pub fn once_per_fighter_frame(fighter: &mut L2CFighterCommon) {
         let fighter_kinetic_energy_motion = mem::transmute::<u64, &mut smash::app::FighterKineticEnergyGravity>(KineticModule::get_energy(module_accessor, *FIGHTER_KINETIC_ENERGY_ID_GRAVITY));
         let y_vel = KineticModule::get_sum_speed_y(module_accessor, *KINETIC_ENERGY_RESERVE_ATTRIBUTE_MAIN);
         if !is_grounded(module_accessor) && is_special(module_accessor, false){
-           // FighterKineticEnergyGravity::set_gravity_coefficient(fighter_kinetic_energy_motion, 1.7)
+            FighterKineticEnergyGravity::set_gravity_coefficient(fighter_kinetic_energy_motion, 1.7)
         } else {
-            //FighterKineticEnergyGravity::set_gravity_coefficient(fighter_kinetic_energy_motion, 1.2)
+            FighterKineticEnergyGravity::set_gravity_coefficient(fighter_kinetic_energy_motion, 1.1)
         }
         if ControlModule::get_stick_y(module_accessor) > 0.5 && y_vel <= 0.0{
             FighterKineticEnergyGravity::set_gravity_coefficient(fighter_kinetic_energy_motion, 0.5)
