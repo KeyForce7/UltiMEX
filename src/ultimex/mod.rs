@@ -15,7 +15,7 @@ use smash::phx::{Hash40, Vector4f};
 use skyline::nn::ro::LookupSymbol;
 use std::time::Duration;
 use skyline::libc::c_int;
-use smash::app::lua_bind::StatusModule::prev_status_kind;
+use smash::app::lua_bind::StatusModule::{prev_status_kind, status_kind};
 use smash::app::smashball::is_training_mode;
 use smash::app::sv_math::rand;
 use smash::lua2cpp::L2CFighterCommon;
@@ -34,6 +34,8 @@ static mut AIRTAUNT_USED :[bool; 9] =[false;9];
 static mut IS_LEFT :[bool;8] =[false;8];
 static mut IS_RIGHT:[bool;8] =[false;8];
 static mut TECH_FRAME: [i32; 9] = [0; 9];
+static mut IS_ATK_SMASH_HIT:bool = false;
+static mut SMASH_HIT_ENTRY_ID:i32 = 0;
 static mut TIMES_ATTACKED:[i32;9] = [0;9];
 static mut HIT_FRAME_COUNTER:[f32;8] = [0.0;8];
 static mut CTR_HIT_INVIN:[f32;8] = [0.0;8];
@@ -984,28 +986,44 @@ pub fn is_grounded(module_accessor: &mut app::BattleObjectModuleAccessor) -> boo
     situation_kind == *SITUATION_KIND_GROUND
 }
 
+pub unsafe fn is_smash_attack_status(module_accessor: &mut BattleObjectModuleAccessor) -> bool {
+    StatusModule::status_kind(module_accessor) == *FIGHTER_STATUS_KIND_ATTACK_S4 ||
+        StatusModule::status_kind(module_accessor) == *FIGHTER_STATUS_KIND_ATTACK_HI4 ||
+        StatusModule::status_kind(module_accessor) == *FIGHTER_STATUS_KIND_ATTACK_LW4
+}
+
 pub unsafe fn tech_everything(module_accessor: &mut BattleObjectModuleAccessor){
-    let mut ENTRY_ID = get_entry_id(module_accessor);
-    if StatusModule::status_kind(module_accessor) == *FIGHTER_STATUS_KIND_DAMAGE_FLY || StatusModule::status_kind(module_accessor) == *FIGHTER_STATUS_KIND_DAMAGE_FLY_METEOR{
-        TECH_FRAME[ENTRY_ID]+=1;
-    } else {
-        TECH_FRAME[ENTRY_ID] = 0;
-    }
-    if TECH_FRAME[ENTRY_ID]<=15 && TECH_FRAME[ENTRY_ID]>0 && !WorkModule::is_flag(module_accessor, *FIGHTER_INSTANCE_WORK_ID_FLAG_DEATH_PREDICTION){
-        if is_cpu(module_accessor){
-            change_status(module_accessor, *FIGHTER_STATUS_KIND_PASSIVE_WALL);
+        let mut ATTACKER_ENTRY_ID = WorkModule::get_int(module_accessor, *FIGHTER_INSTANCE_WORK_ID_INT_SUCCEED_ATTACKER_ENTRY_ID);
+        let mut ENTRY_ID = get_entry_id(module_accessor);
+        if is_smash_attack_status(module_accessor) && is_inflic(module_accessor){
+            IS_ATK_SMASH_HIT = true;
+            SMASH_HIT_ENTRY_ID = ENTRY_ID as i32;
         }
-        else if ControlModule::check_button_trigger(module_accessor, *CONTROL_PAD_BUTTON_GUARD){
-            change_status(module_accessor, *FIGHTER_STATUS_KIND_PASSIVE_WALL);
+        if !IS_ATK_SMASH_HIT{
+            if StatusModule::status_kind(module_accessor) == *FIGHTER_STATUS_KIND_DAMAGE_FLY || StatusModule::status_kind(module_accessor) == *FIGHTER_STATUS_KIND_DAMAGE_FLY_METEOR{
+                TECH_FRAME[ENTRY_ID]+=1;
+            } else {
+                TECH_FRAME[ENTRY_ID] = 0;
+            }
+            if TECH_FRAME[ENTRY_ID]<=15 && TECH_FRAME[ENTRY_ID]>0 && !WorkModule::is_flag(module_accessor, *FIGHTER_INSTANCE_WORK_ID_FLAG_DEATH_PREDICTION){
+                if is_cpu(module_accessor){
+                    change_status(module_accessor, *FIGHTER_STATUS_KIND_PASSIVE_WALL);
+                }
+                else if ControlModule::check_button_trigger(module_accessor, *CONTROL_PAD_BUTTON_GUARD){
+                    change_status(module_accessor, *FIGHTER_STATUS_KIND_PASSIVE_WALL);
+                }
+            }
+            else if TECH_FRAME[ENTRY_ID]<=20 && TECH_FRAME[ENTRY_ID]>0 && WorkModule::is_flag(module_accessor, *FIGHTER_INSTANCE_WORK_ID_FLAG_DEATH_PREDICTION){
+                if is_cpu(module_accessor){
+                    change_status(module_accessor, *FIGHTER_STATUS_KIND_PASSIVE_WALL);
+                }
+                else if ControlModule::check_button_trigger(module_accessor, *CONTROL_PAD_BUTTON_GUARD){
+                    change_status(module_accessor, *FIGHTER_STATUS_KIND_PASSIVE_WALL);
+                }
+            }
         }
-    }
-    else if TECH_FRAME[ENTRY_ID]<=20 && TECH_FRAME[ENTRY_ID]>0 && WorkModule::is_flag(module_accessor, *FIGHTER_INSTANCE_WORK_ID_FLAG_DEATH_PREDICTION){
-        if is_cpu(module_accessor){
-            change_status(module_accessor, *FIGHTER_STATUS_KIND_PASSIVE_WALL);
-        }
-        else if ControlModule::check_button_trigger(module_accessor, *CONTROL_PAD_BUTTON_GUARD){
-            change_status(module_accessor, *FIGHTER_STATUS_KIND_PASSIVE_WALL);
-        }
+    else if ENTRY_ID != SMASH_HIT_ENTRY_ID as usize && !is_damage_check(module_accessor, false){
+        IS_ATK_SMASH_HIT = false;
     }
 }
 
@@ -1360,6 +1378,7 @@ pub unsafe fn enable_dash_force(module_accessor: &mut BattleObjectModuleAccessor
             }
         }
     }
+
     if is_training_mode() && [*FIGHTER_STATUS_KIND_TURN_DASH].contains(&status_kind) &&
         ![*FIGHTER_KIND_RYU, *FIGHTER_KIND_KEN, *FIGHTER_KIND_DOLLY, *FIGHTER_KIND_DEMON].contains(&fighter_kind){
         IS_DASH_BACK[ENTRY_ID] = true;
@@ -2063,9 +2082,13 @@ pub fn once_per_fighter_frame(fighter: &mut L2CFighterCommon) {
         }
         let fighter_kinetic_energy_motion = mem::transmute::<u64, &mut smash::app::FighterKineticEnergyGravity>(KineticModule::get_energy(module_accessor, *FIGHTER_KINETIC_ENERGY_ID_GRAVITY));
         let y_vel = KineticModule::get_sum_speed_y(module_accessor, *KINETIC_ENERGY_RESERVE_ATTRIBUTE_MAIN);
-        if !is_grounded(module_accessor) && is_special(module_accessor, false){
+        if !is_grounded(module_accessor) && (is_special_s(module_accessor, false) || is_special_lw(module_accessor, false) || is_special_n(module_accessor, false)){
             FighterKineticEnergyGravity::set_gravity_coefficient(fighter_kinetic_energy_motion, 1.7)
-        } else {
+        }
+        else if !is_grounded(module_accessor) && is_special_hi(module_accessor, false){
+            FighterKineticEnergyGravity::set_gravity_coefficient(fighter_kinetic_energy_motion, 0.9)
+        }
+        else {
             FighterKineticEnergyGravity::set_gravity_coefficient(fighter_kinetic_energy_motion, 1.1)
         }
         if ControlModule::get_stick_y(module_accessor) > 0.5 && y_vel <= 0.0{
