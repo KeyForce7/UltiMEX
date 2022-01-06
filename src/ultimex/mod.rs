@@ -51,7 +51,8 @@ static mut IS_TURNING:[bool;8] =[false;8];
 static mut IS_USED_PUMMEL:[bool;8] =[false;8];
 static mut IS_BACK_SMASH:[bool;8] =[false;8];
 static mut IS_BACK_TILT:[bool;8] =[false;8];
-static mut IS_USED_SUPER_ARMOR:[bool;8] =[false;8];
+static mut IS_USED_DATK_SUPER_ARMOR:[bool;8] =[false;8];
+static mut IS_USED_SMASH_SUPER_ARMOR:[bool;8] =[false;8];
 static mut IS_FLIGHT:[bool;8] = [false; 8];
 static mut NUM_AERIALS:[i32;8] = [0; 8];
 static mut IS_TURBO:[bool;8] = [false; 8];
@@ -576,7 +577,7 @@ pub unsafe fn auto_turnaround(module_accessor: &mut BattleObjectModuleAccessor){
 pub unsafe fn throw_cancels(module_accessor: &mut BattleObjectModuleAccessor){
     let status_kind = smash::app::lua_bind::StatusModule::status_kind(module_accessor);
     if status_kind == *FIGHTER_STATUS_KIND_THROW{
-        if MotionModule::frame(module_accessor) > 35.0{
+        if MotionModule::frame(module_accessor) > 5.0{
             CancelModule::enable_cancel(module_accessor);
             disable_jab(module_accessor);
             enable_dash_force(module_accessor);
@@ -1179,6 +1180,7 @@ pub unsafe fn dash_attack(fighter: &mut L2CFighterCommon){
     let module_accessor = smash::app::sv_system::battle_object_module_accessor(lua_state);
     let status_kind = StatusModule::status_kind(module_accessor);
     let mul_momentum  = smash::phx::Vector3f { x: 2.0, y: 1.0, z: 1.0 };
+    let dmg_succeed = WorkModule::get_float(module_accessor,*FIGHTER_INSTANCE_WORK_ID_FLOAT_SUCCEED_HIT_DAMAGE) * 10000.0;
     let x_vel = KineticModule::get_sum_speed_x(module_accessor, *KINETIC_ENERGY_RESERVE_ATTRIBUTE_MAIN);
     let ENTRY_ID = get_entry_id(module_accessor);
     if status_kind == *FIGHTER_STATUS_KIND_ATTACK_DASH{
@@ -1186,19 +1188,17 @@ pub unsafe fn dash_attack(fighter: &mut L2CFighterCommon){
             DASH_START_X[ENTRY_ID] = PostureModule::pos_x(module_accessor);
         }
         CancelModule::enable_cancel(module_accessor);
-        if ENTRY_ID == 0{
-            if IS_USED_SUPER_ARMOR[ENTRY_ID]{
-                acmd!(lua_state, {
-                     sv_module_access::damage(MSC=MA_MSC_DAMAGE_DAMAGE_NO_REACTION, Type=DAMAGE_NO_REACTION_MODE_NORMAL, DamageThreshold=0)
-                });
-            }
-            else{
-                acmd!(lua_state, {
-                     sv_module_access::damage(MSC=MA_MSC_DAMAGE_DAMAGE_NO_REACTION, Type=DAMAGE_NO_REACTION_MODE_ALWAYS, DamageThreshold=0)
-                });
-            }
-            if is_inflic(&mut *get_module_accessor(1)){
-                IS_USED_SUPER_ARMOR[ENTRY_ID] = true;
+        if IS_USED_DATK_SUPER_ARMOR[ENTRY_ID]{
+            acmd!(lua_state, {
+                sv_module_access::damage(MSC=MA_MSC_DAMAGE_DAMAGE_NO_REACTION, Type=DAMAGE_NO_REACTION_MODE_NORMAL, DamageThreshold=0)
+            });
+        }
+        else{
+            acmd!(lua_state, {
+                sv_module_access::damage(MSC=MA_MSC_DAMAGE_DAMAGE_NO_REACTION, Type=DAMAGE_NO_REACTION_MODE_ALWAYS, DamageThreshold=0)
+            });
+            if dmg_succeed > 0.0{
+                IS_USED_DATK_SUPER_ARMOR[ENTRY_ID] = true;
             }
         }
         disable_walk(module_accessor);
@@ -1219,7 +1219,7 @@ pub unsafe fn dash_attack(fighter: &mut L2CFighterCommon){
     }
     else{
         DASH_START_X[ENTRY_ID] = 0.0;
-        IS_USED_SUPER_ARMOR[ENTRY_ID] = false;
+        IS_USED_DATK_SUPER_ARMOR[ENTRY_ID] = false;
     }
 }
 
@@ -1525,9 +1525,13 @@ pub fn once_per_fighter_frame(fighter: &mut L2CFighterCommon) {
         let cat2 = ControlModule::get_command_flag_cat(module_accessor, 1);
         let cancel_frame = FighterMotionModuleImpl::get_cancel_frame(module_accessor, Hash40::new_raw(MotionModule::motion_kind(module_accessor)), true) as f32;
         let mut ENTRY_ID = get_entry_id(module_accessor);
+        let dmg_succeed = WorkModule::get_float(module_accessor,*FIGHTER_INSTANCE_WORK_ID_FLOAT_SUCCEED_HIT_DAMAGE) * 10000.0;
         DIRECTION_FACING[ENTRY_ID] = PostureModule::lr(module_accessor);
 
         let FIGHTER_MANAGER = get_fighter_manager();
+        if [*FIGHTER_STATUS_KIND_CATCH, *FIGHTER_STATUS_KIND_CATCH_DASH, *FIGHTER_STATUS_KIND_CATCH_TURN].contains(&status_kind){
+            MotionModule::set_rate(module_accessor, 2.0);
+        }
 
         if  [*FIGHTER_STATUS_KIND_ESCAPE_B, *FIGHTER_STATUS_KIND_ESCAPE_F].contains(&status_kind) &&
             (StatusModule::situation_kind(get_module_accessor(0)) == *SITUATION_KIND_GROUND &&
@@ -1776,7 +1780,7 @@ pub fn once_per_fighter_frame(fighter: &mut L2CFighterCommon) {
             enable_dash_force(module_accessor);
         }
 
-        if status_kind == *FIGHTER_STATUS_KIND_SQUAT && MotionModule::frame(module_accessor) < 10.0{
+        if status_kind == *FIGHTER_STATUS_KIND_SQUAT && MotionModule::frame(module_accessor) < 15.0{
             HitModule::set_whole(module_accessor, smash::app::HitStatus(*HIT_STATUS_INVINCIBLE), 0);
         }
         if [*FIGHTER_KIND_SIMON, *FIGHTER_KIND_RICHTER].contains(&status_kind){
@@ -1799,10 +1803,25 @@ pub fn once_per_fighter_frame(fighter: &mut L2CFighterCommon) {
         if !is_anyplayer_final() && is_inflic(module_accessor){
             if ![*FIGHTER_STATUS_KIND_THROW, *FIGHTER_STATUS_KIND_CATCH, *FIGHTER_STATUS_KIND_CATCH_CUT, *FIGHTER_STATUS_KIND_CATCH_DASH, *FIGHTER_STATUS_KIND_CATCH_JUMP,
                 *FIGHTER_STATUS_KIND_CATCH_PULL, *FIGHTER_STATUS_KIND_CATCH_TURN, *FIGHTER_STATUS_KIND_CATCH_WAIT, *FIGHTER_STATUS_KIND_CATCH_ATTACK].contains(&status_kind){
-                CancelModule::enable_cancel(module_accessor);
-                if [*FIGHTER_STATUS_KIND_ATTACK,*FIGHTER_STATUS_KIND_ATTACK_100].contains(&status_kind){
-                    //enable_smash_atk_force(module_accessor);
+                if [*FIGHTER_STATUS_KIND_ATTACK, *FIGHTER_STATUS_KIND_ATTACK_100].contains(&status_kind)
+                && MotionModule::frame(module_accessor) > 5.0{
                     enable_tilts_force(module_accessor);
+                    CancelModule::enable_cancel(module_accessor);
+                }
+                else if [*FIGHTER_STATUS_KIND_ATTACK_LW3, *FIGHTER_STATUS_KIND_ATTACK_S3, *FIGHTER_STATUS_KIND_ATTACK_HI3].contains(&status_kind)
+                    && MotionModule::frame(module_accessor) > 10.0{
+                    CancelModule::enable_cancel(module_accessor);
+                }
+                else if [hash40("attack_air_n"), hash40("attack_air_n_2"), hash40("attack_air_n_3")].contains(&MotionModule::motion_kind(module_accessor))
+                    && MotionModule::frame(module_accessor) > 5.0{
+                    CancelModule::enable_cancel(module_accessor);
+                }
+                else if status_kind == *FIGHTER_STATUS_KIND_ATTACK_AIR && MotionModule::frame(module_accessor) > 10.0{
+                    disable_aerials(module_accessor, true);
+                    CancelModule::enable_cancel(module_accessor);
+                }
+                else{
+                    CancelModule::enable_cancel(module_accessor);
                 }
                 enable = true;
                 if status_kind == *FIGHTER_STATUS_KIND_ATTACK_DASH{
@@ -1816,9 +1835,6 @@ pub fn once_per_fighter_frame(fighter: &mut L2CFighterCommon) {
                 else{
                     disable_jab(module_accessor);
                     disable_tilts(module_accessor);
-                }
-                if status_kind == *FIGHTER_STATUS_KIND_ATTACK_AIR{
-                    disable_aerials(module_accessor, true);
                 }
                 if [*FIGHTER_STATUS_KIND_ATTACK_LW4, *FIGHTER_STATUS_KIND_ATTACK_S4, *FIGHTER_STATUS_KIND_ATTACK_HI4,
                     *FIGHTER_STATUS_KIND_ATTACK_LW4_START, *FIGHTER_STATUS_KIND_ATTACK_S4_START, *FIGHTER_STATUS_KIND_ATTACK_HI4_START].contains(&status_kind){
@@ -1843,9 +1859,6 @@ pub fn once_per_fighter_frame(fighter: &mut L2CFighterCommon) {
                 }
                 else{
                     enable_specials_force(module_accessor);
-                }
-                if status_kind == *FIGHTER_STATUS_KIND_ATTACK_100{
-                    enable_tilts_force(module_accessor);
                 }
                 /*
                 if status_kind == *FIGHTER_STATUS_KIND_ATTACK_AIR{
@@ -1891,6 +1904,7 @@ pub fn once_per_fighter_frame(fighter: &mut L2CFighterCommon) {
                 enable_ad(module_accessor);
             }
         }
+
 
 
         if [*FIGHTER_STATUS_KIND_ATTACK_LW3, *FIGHTER_STATUS_KIND_ATTACK_S3, *FIGHTER_STATUS_KIND_ATTACK_HI3].contains(&status_kind) {
@@ -1942,7 +1956,19 @@ pub fn once_per_fighter_frame(fighter: &mut L2CFighterCommon) {
         if [*FIGHTER_STATUS_KIND_ATTACK_LW4, *FIGHTER_STATUS_KIND_ATTACK_S4, *FIGHTER_STATUS_KIND_ATTACK_HI4].contains(&status_kind){
             CancelModule::enable_cancel(module_accessor);
             AttackModule::set_power_mul(module_accessor, 0.8);
-
+            if IS_USED_SMASH_SUPER_ARMOR[ENTRY_ID]{
+                acmd!(lua_state, {
+                    sv_module_access::damage(MSC=MA_MSC_DAMAGE_DAMAGE_NO_REACTION, Type=DAMAGE_NO_REACTION_MODE_NORMAL, DamageThreshold=0)
+                });
+            }
+            else{
+                acmd!(lua_state, {
+                    sv_module_access::damage(MSC=MA_MSC_DAMAGE_DAMAGE_NO_REACTION, Type=DAMAGE_NO_REACTION_MODE_ALWAYS, DamageThreshold=0)
+                });
+                if dmg_succeed > 0.0{
+                    IS_USED_SMASH_SUPER_ARMOR[ENTRY_ID] = true;
+                }
+            }
             if !is_inflic(module_accessor){
                 disable_crouch(module_accessor);
             }
@@ -1967,6 +1993,9 @@ pub fn once_per_fighter_frame(fighter: &mut L2CFighterCommon) {
             else if !is_inflic(module_accessor){
                 enable_all(module_accessor);
             }
+        }
+        else{
+            IS_USED_SMASH_SUPER_ARMOR[ENTRY_ID] = false;
         }
         if [*FIGHTER_DEMON_STATUS_KIND_ATTACK_STAND_1, *FIGHTER_DEMON_STATUS_KIND_ATTACK_STAND_2, *FIGHTER_DEMON_STATUS_KIND_ATTACK_STAND_3,
             *FIGHTER_DEMON_STATUS_KIND_ATTACK_STAND_4, *FIGHTER_DEMON_STATUS_KIND_ATTACK_STAND_5, *FIGHTER_DEMON_STATUS_KIND_ATTACK_STAND_6].contains(&status_kind){
@@ -1998,6 +2027,8 @@ pub fn once_per_fighter_frame(fighter: &mut L2CFighterCommon) {
             if is_grounded(module_accessor){
                 enable_catch_force( module_accessor);
                 enable_smash_atk_force(module_accessor);
+                enable_tilts_force(module_accessor);
+                enable_attack_n_force(module_accessor);
                 if !is_inflic(module_accessor){
                     enable_tilts_force(module_accessor);
                     if (cat1 & *FIGHTER_PAD_CMD_CAT1_FLAG_ATTACK_S3) == 0 && (cat1 & *FIGHTER_PAD_CMD_CAT1_FLAG_ATTACK_HI3) == 0 && (cat1 & *FIGHTER_PAD_CMD_CAT1_FLAG_ATTACK_LW3) == 0 &&
@@ -2015,8 +2046,9 @@ pub fn once_per_fighter_frame(fighter: &mut L2CFighterCommon) {
             }
             else{
                 if !is_inflic(module_accessor){
-                    enable_aerials_force(module_accessor);
+
                 }
+                enable_aerials_force(module_accessor);
                 enable_escape_air_force(module_accessor);
             }
         }
@@ -2028,6 +2060,10 @@ pub fn once_per_fighter_frame(fighter: &mut L2CFighterCommon) {
                 if NUM_AERIALS[ENTRY_ID] < 3{
                     enable_aerials_force(module_accessor);
                 }
+            }
+            else if [hash40("attack_air_n"), hash40("attack_air_n_2"), hash40("attack_air_n_3")].contains(&MotionModule::motion_kind(module_accessor)){
+                enable_jump_force(module_accessor, true);
+                enable_escape_air_force(module_accessor);
             }
             enable_specials_force(module_accessor);
         }
