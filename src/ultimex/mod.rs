@@ -14,7 +14,9 @@ use smash::app::sv_battle_object;
 use smash::phx::{Hash40, Vector4f};
 use skyline::nn::ro::LookupSymbol;
 use std::time::Duration;
+use skyline::c_str;
 use skyline::libc::c_int;
+use smash::app::lua_bind::MotionModule::end_frame;
 use smash::app::lua_bind::StatusModule::{prev_status_kind, status_kind};
 use smash::app::smashball::is_training_mode;
 use smash::app::sv_math::rand;
@@ -1057,6 +1059,10 @@ pub unsafe fn get_cancel_frame(module_accessor: &mut BattleObjectModuleAccessor)
     FighterMotionModuleImpl::get_cancel_frame(module_accessor, smash::phx::Hash40::new_raw(MotionModule::motion_kind(module_accessor)), true) as f32
 }
 
+pub unsafe fn get_current_frame(module_accessor: &mut BattleObjectModuleAccessor) -> f32 {
+    MotionModule::frame(module_accessor)
+}
+
 static mut IS_ALLOW_AD_ATK_AIR:[bool;8] = [false;8];
 pub unsafe fn ad_cancels(module_accessor: &mut BattleObjectModuleAccessor){
     let mut ENTRY_ID = WorkModule::get_int(module_accessor, *FIGHTER_INSTANCE_WORK_ID_INT_ENTRY_ID) as usize;
@@ -1102,11 +1108,17 @@ pub unsafe fn ad_cancels(module_accessor: &mut BattleObjectModuleAccessor){
         AIRDODGE[ENTRY_ID] = 0;
     }
     if [*FIGHTER_STATUS_KIND_ESCAPE_AIR, *FIGHTER_STATUS_KIND_ESCAPE_AIR_SLIDE].contains(&status_kind){
-        AIRDODGE[ENTRY_ID] -= 1;
         WorkModule::enable_transition_term_group_ex(module_accessor, *FIGHTER_STATUS_TRANSITION_TERM_ID_CONT_SPECIAL_HI);
+        CancelModule::enable_cancel(module_accessor);
+        if get_current_frame(module_accessor) == 1.0{
+            AIRDODGE[ENTRY_ID] -= 1;
+        }
+        if AIRDODGE[ENTRY_ID]>0 && ControlModule::check_button_on(module_accessor, *CONTROL_PAD_BUTTON_GUARD) && get_current_frame(module_accessor) > end_frame(module_accessor) / 3.0
+        {
+            change_status(module_accessor, *FIGHTER_STATUS_KIND_ESCAPE_AIR);
+        }
     }
-
-    if CancelModule::is_enable_cancel(module_accessor) && StatusModule::situation_kind(module_accessor) == SITUATION_KIND_AIR && ControlModule::check_button_on(module_accessor,*CONTROL_PAD_BUTTON_GUARD)
+    if CancelModule::is_enable_cancel(module_accessor) && StatusModule::situation_kind(module_accessor) == SITUATION_KIND_AIR && ControlModule::check_button_trigger(module_accessor,*CONTROL_PAD_BUTTON_GUARD)
         && AIRDODGE[ENTRY_ID]>0 && status_kind != *FIGHTER_STATUS_KIND_ATTACK_AIR{
         StatusModule::change_status_request_from_script(module_accessor, *FIGHTER_STATUS_KIND_ESCAPE_AIR, true);
     }
@@ -1115,9 +1127,6 @@ pub unsafe fn ad_cancels(module_accessor: &mut BattleObjectModuleAccessor){
         if MotionModule::frame(module_accessor) >= cancelframe_d {
             CancelModule::enable_cancel(module_accessor);
         }
-    }
-    if [*FIGHTER_STATUS_KIND_ESCAPE_AIR, *FIGHTER_STATUS_KIND_ESCAPE_AIR_SLIDE].contains(&status_kind){
-        CancelModule::enable_cancel(module_accessor);
     }
 }
 static mut FRAME_TIMER:[f32;8] = [0.0; 8];
@@ -2171,9 +2180,7 @@ pub fn install(){
     unsafe{
         LookupSymbol(
             &mut FIGHTER_MANAGER_ADDR,
-            "_ZN3lib9SingletonIN3app14FighterManagerEE9instance_E\u{0}"
-                .as_bytes()
-                .as_ptr(),);
+            c_str("_ZN3lib9SingletonIN3app14FighterManagerEE9instance_E\u{0}"));
     }
     smashline::install_agent_frame_callbacks!(once_per_fighter_frame);
     smashline::install_status_scripts!(fall_status_main, dash_status_end, escape_air_main);
